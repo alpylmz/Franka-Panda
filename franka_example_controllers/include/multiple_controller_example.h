@@ -16,7 +16,7 @@
 
 namespace franka_example_controllers {
 
-class CartesianPoseExampleController
+class MultipleController
     : public controller_interface::MultiInterfaceController<franka_hw::FrankaPoseCartesianInterface,
                                                             franka_hw::FrankaStateInterface,
                                                             franka_hw::FrankaVelocityCartesianInterface> {
