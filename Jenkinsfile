@@ -6,7 +6,6 @@ pipeline {
     options {
         checkoutToSubdirectory('src/franka_ros')
         parallelsAlwaysFailFast()
-        disableConcurrentBuilds()
     }
     environment {
         CMAKE_BUILD_PARALLEL_LEVEL=sh(script: 'nproc', returnStdout: true).trim().toInteger()
@@ -116,7 +115,7 @@ pipeline {
                         steps {
                             sh ''' 
                                 . /opt/ros/${DISTRO}/setup.sh
-                                ${BUILD_TOOL} run_tests -j1
+                                ${BUILD_TOOL} run_tests
                                 catkin_test_results
                             '''
                         }

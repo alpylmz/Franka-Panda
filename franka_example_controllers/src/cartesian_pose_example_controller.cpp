@@ -12,6 +12,31 @@
 #include <hardware_interface/hardware_interface.h>
 #include <pluginlib/class_list_macros.h>
 #include <ros/ros.h>
+#include <franka_msgs/SetPositionCommand.h>
+#include <std_msgs/Float32.h>
+
+// the position goals
+float ___x = 0.0;
+float ___y = 0.0;
+float ___z = 0.5;
+double prev_pos_z = 0.0;
+double position_step = 0.0000001;
+double incremental_z = 0.0;
+
+bool positionServiceCallback(franka_msgs::SetPositionCommand::Request &req,
+                             franka_msgs::SetPositionCommand::Response &res) {
+  std::cout << "Position Service Callback" << std::endl;
+  //std::cout << "Request: " << req.position.x << " " << req.position.y << " " << req.position.z << std::endl;
+  std::cout << "Response: " << res.success << std::endl;
+  ___x += req.x;
+  ___y += req.y;
+  ___z += req.z;
+  res.success = true;
+  return true;
+}
+
+ros::Publisher publisher_x;
+ros::ServiceServer service_position_service;
 
 namespace franka_example_controllers {
 
@@ -24,6 +49,13 @@ bool CartesianPoseExampleController::init(hardware_interface::RobotHW* robot_har
         "interface from hardware");
     return false;
   }
+
+  // start the position service
+  service_position_service = node_handle.advertiseService("/franka_position_service", positionServiceCallback);
+
+  // start a publisher that gives ___x
+  publisher_x = node_handle.advertise<std_msgs::Float32>("/franka_position_x", 1);
+
 
   std::string arm_id;
   if (!node_handle.getParam("arm_id", arm_id)) {
@@ -73,7 +105,35 @@ void CartesianPoseExampleController::starting(const ros::Time& /* time */) {
   elapsed_time_ = ros::Duration(0.0);
 }
 
-void CartesianPoseExampleController::update(const ros::Time& /* time */,
+
+void CartesianPoseExampleController::update(const ros::Time&,
+                                            const ros::Duration& period) {
+  elapsed_time_ += period;
+  
+  std::array<double, 16> new_pose = initial_pose_;
+  if(abs(incremental_z - ___z) > position_step){
+    if(incremental_z < ___z){
+      incremental_z += position_step;
+    }
+    else{
+      incremental_z -= position_step;
+    }
+  }
+  
+  new_pose[12] -= ___x;
+  new_pose[13] -= ___y;
+  new_pose[14] -= incremental_z;
+  //std::cout << "z: " << incremental_z << std::endl;
+  //std::cout << "New Pose: " << new_pose[0] << " " << new_pose[1] << " " << new_pose[2] << " " << new_pose[3] << " " << new_pose[4] << " " << new_pose[5] << " " << new_pose[6] << " " << new_pose[7] << " " << new_pose[8] << " " << new_pose[9] << " " << new_pose[10] << " " << new_pose[11] << " " << new_pose[12] << " " << new_pose[13] << " " << new_pose[14] << " " << new_pose[15] << std::endl;
+  //std_msgs::Float32 msg;
+  //msg.data = ___x;
+  //publisher_x.publish(msg);
+  cartesian_pose_handle_->setCommand(new_pose);
+
+}
+
+
+void CartesianPoseExampleController::update2(const ros::Time&,
                                             const ros::Duration& period) {
   elapsed_time_ += period;
 
@@ -84,8 +144,10 @@ void CartesianPoseExampleController::update(const ros::Time& /* time */,
   std::array<double, 16> new_pose = initial_pose_;
   new_pose[12] -= delta_x;
   new_pose[14] -= delta_z;
+  std::cout << "New Pose: " << new_pose[0] << " " << new_pose[1] << " " << new_pose[2] << " " << new_pose[3] << " " << new_pose[4] << " " << new_pose[5] << " " << new_pose[6] << " " << new_pose[7] << " " << new_pose[8] << " " << new_pose[9] << " " << new_pose[10] << " " << new_pose[11] << " " << new_pose[12] << " " << new_pose[13] << " " << new_pose[14] << " " << new_pose[15] << std::endl;
   cartesian_pose_handle_->setCommand(new_pose);
 }
+
 
 }  // namespace franka_example_controllers
 

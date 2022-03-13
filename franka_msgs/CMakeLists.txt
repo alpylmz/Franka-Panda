@@ -13,6 +13,8 @@ add_service_files(FILES
   SetJointImpedance.srv
   SetKFrame.srv
   SetLoad.srv
+  Picker.srv
+  SetPositionCommand.srv
 )
 
 add_action_files(FILES ErrorRecovery.action)
