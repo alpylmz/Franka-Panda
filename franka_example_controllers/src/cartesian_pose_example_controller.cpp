@@ -23,6 +23,8 @@ double prev_pos_z = 0.0;
 double position_step = 0.0000001;
 double incremental_z = 0.0;
 
+double move_step = 0.001;
+
 bool positionServiceCallback(franka_msgs::SetPositionCommand::Request &req,
                              franka_msgs::SetPositionCommand::Response &res) {
   std::cout << "Position Service Callback" << std::endl;
@@ -106,7 +108,7 @@ void CartesianPoseExampleController::starting(const ros::Time& /* time */) {
 }
 
 
-void CartesianPoseExampleController::update(const ros::Time&,
+/*void CartesianPoseExampleController::update(const ros::Time&,
                                             const ros::Duration& period) {
   elapsed_time_ += period;
   
@@ -130,8 +132,50 @@ void CartesianPoseExampleController::update(const ros::Time&,
   //publisher_x.publish(msg);
   cartesian_pose_handle_->setCommand(new_pose);
 
+}*/
+
+
+double CartesianPoseExampleController::calculateMovementTowards(double current, double goal, ros::Duration elapsed_time)
+{
+  if(abs(current - goal) < 0.001)
+  {
+    return current;
+  }
+
+  if( abs(goal - current) >  move_step)
+  {
+    if(current < goal)
+      return current + move_step;
+    if(current > goal)
+      return current - move_step;
+  }
+  else
+  {
+    return goal;
+  }
+
+  return current;
 }
 
+void CartesianPoseExampleController::update(const ros::Time&,
+                                            const ros::Duration& period) {
+
+  elapsed_time_ += period;
+
+  double task_x = 0.2;
+  double task_y = 0.0;
+  double task_z = 0.0;
+
+  std::array<double, 16> current_pose = cartesian_pose_handle_->getRobotState().O_T_EE_d;
+  std::array<double, 16> new_pose = initial_pose_;
+
+  
+  new_pose[12] += calculateMovementTowards(current_pose[12], task_x+initial_pose_[12], elapsed_time_);
+  new_pose[13] += calculateMovementTowards(current_pose[13], task_y+initial_pose_[13], elapsed_time_);
+  new_pose[14] += calculateMovementTowards(current_pose[14], task_z+initial_pose_[14], elapsed_time_);
+  
+  cartesian_pose_handle_->setCommand(new_pose);
+}
 
 void CartesianPoseExampleController::update2(const ros::Time&,
                                             const ros::Duration& period) {

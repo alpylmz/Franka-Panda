@@ -24,6 +24,8 @@ class CartesianPoseExampleController
   void starting(const ros::Time&) override;
   void update(const ros::Time&, const ros::Duration& period) override;
   void update2(const ros::Time&, const ros::Duration& period);
+  double calculateMovementTowards(double current, double goal, ros::Duration elapsed_time);
+
 
  private:
   franka_hw::FrankaPoseCartesianInterface* cartesian_pose_interface_;
