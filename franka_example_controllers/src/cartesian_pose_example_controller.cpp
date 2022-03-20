@@ -166,7 +166,7 @@ void CartesianPoseExampleController::update(const ros::Time&,
   double task_y = 0.0;
   double task_z = 0.0;
 
-  std::array<double, 16> current_pose = cartesian_pose_handle_->getRobotState().O_T_EE_d;
+  std::array<double, 16> current_pose = cartesian_pose_handle_->getRobotState().O_T_EE;
   std::array<double, 16> new_pose = initial_pose_;
 
   
