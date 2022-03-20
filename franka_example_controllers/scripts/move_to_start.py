@@ -11,6 +11,7 @@ import geometry_msgs
 from std_msgs.msg import Float32
 import actionlib
 from franka_msgs.srv import SetPositionCommand
+from franka_msgs.srv import SetOrientationCommand
 import copy
 
 """
@@ -43,13 +44,16 @@ def isReachedGoal(current_pose, goal_pose, goal_tolerance):
 goal_x = 0.0
 goal_y = 0.0
 goal_z = 0.0
+is_there_a_goal = False
 
 def move_service(req):
-    global goal_x, goal_y, goal_z
-    goal_x += req.x
-    goal_y += req.y
-    goal_z += req.z
+    global goal_x, goal_y, goal_z, is_there_a_goal
+    goal_x = req.x
+    goal_y = req.y
+    goal_z = req.z
+    is_there_a_goal = True
     return True
+
 
 
 if __name__ == '__main__':
@@ -60,6 +64,8 @@ if __name__ == '__main__':
     commander.set_named_target('ready')
     s1 = rospy.Service('/franka_go', SetPositionCommand, move_service)
 
+    
+
     initial_pose = commander.get_current_joint_values()
     picker = rospy.ServiceProxy('/picker', Picker)
     movement_count = 0
@@ -68,18 +74,62 @@ if __name__ == '__main__':
     # to neutral pose
     commander.go(wait=True)
     initial_position = commander.get_current_pose()
+    print("get_active_joints: ", commander.get_active_joints())
 
     while True:
         try:
-            print("goal_x: " + str(goal_x) + " goal_y: " + str(goal_y) + " goal_z: " + str(goal_z))
-            pose = copy.deepcopy(initial_position)
+            if not is_there_a_goal:
+                sleep(0.1)
+                continue
+            pose = commander.get_current_pose()
             pose.pose.position.x += goal_x
             pose.pose.position.y += goal_y
             pose.pose.position.z += goal_z
+            
+            """
             commander.set_pose_target(pose)
+            """
+            """
+            commander.set_position_target([pose.pose.position.x, pose.pose.position.y, pose.pose.position.z])
+            """
+            """
+            commander.set_pose_target(pose)
+            """
+            """
+            temp_pose = commander.get_current_pose()
+            commander.set_workspace([min(temp_pose.pose.position.x, pose.pose.position.x) - 0.1, max(temp_pose.pose.position.x, pose.pose.position.x) + 0.1, \
+                                    min(temp_pose.pose.position.y, pose.pose.position.y) - 0.1, max(temp_pose.pose.position.y, pose.pose.position.y) + 0.1, \
+                                    min(temp_pose.pose.position.z, pose.pose.position.z) - 0.1, max(temp_pose.pose.position.z, pose.pose.position.z) + 0.1])
+            commander.set_position_target([pose.pose.position.x, pose.pose.position.y, pose.pose.position.z])
+            """
+            """
+            temp_pose = commander.get_current_pose()
+            commander.set_workspace([min(temp_pose.pose.position.x, pose.pose.position.x) - 0.1, max(temp_pose.pose.position.x, pose.pose.position.x) + 0.1, \
+                                    min(temp_pose.pose.position.y, pose.pose.position.y) - 0.1, max(temp_pose.pose.position.y, pose.pose.position.y) + 0.1, \
+                                    min(temp_pose.pose.position.z, pose.pose.position.z) - 0.1, max(temp_pose.pose.position.z, pose.pose.position.z) + 0.1])
+            commander.set_pose_target(pose)
+            """
+
+            """ NOT BAD
+            temp_pose = commander.get_current_pose()
+
+            commander.set_workspace([min(temp_pose.pose.position.x, pose.pose.position.x) - 0.01, max(temp_pose.pose.position.x, pose.pose.position.x) + 0.01, \
+                                    min(temp_pose.pose.position.y, pose.pose.position.y) - 0.01, max(temp_pose.pose.position.y, pose.pose.position.y) + 0.01, \
+                                    min(temp_pose.pose.position.z, pose.pose.position.z) - 0.01, max(temp_pose.pose.position.z, pose.pose.position.z) + 0.01])
+            commander.set_pose_target(pose)
+            """
+            
+            path, fraction = commander.compute_cartesian_path(waypoints=[pose.pose], eef_step=0.01, jump_threshold=0.0)
+            print("path is", path)
+            commander.execute(path, wait=True)
+
+            print("Moving to goal: ", pose.pose.position.x, pose.pose.position.y, pose.pose.position.z)
             #plan1 = commander.plan()
 
-            commander.go(wait=True)
+            #commander.go(wait=True)
+            print("Reached goal")
+            is_there_a_goal = False
+            print(commander.get_current_pose())
         except Exception as ex:
             print(ex)
             print("Failed to plan")
