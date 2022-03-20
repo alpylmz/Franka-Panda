@@ -15,6 +15,7 @@ add_service_files(FILES
   SetLoad.srv
   Picker.srv
   SetPositionCommand.srv
+  SetOrientationCommand.srv
 )
 
 add_action_files(FILES ErrorRecovery.action)
