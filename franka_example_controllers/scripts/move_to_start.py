@@ -44,6 +44,10 @@ def isReachedGoal(current_pose, goal_pose, goal_tolerance):
 goal_x = 0.0
 goal_y = 0.0
 goal_z = 0.0
+or_x = 0.0
+or_y = 0.0
+or_z = 0.0
+or_w = 0.0
 is_there_a_goal = False
 
 def move_service(req):
@@ -54,6 +58,14 @@ def move_service(req):
     is_there_a_goal = True
     return True
 
+def orientation_service(req):
+    global or_x, or_y, or_z, or_w, is_there_a_goal
+    or_x = req.x
+    or_y = req.y
+    or_z = req.z
+    or_w = req.w
+    is_there_a_goal = True
+    return True
 
 
 if __name__ == '__main__':
@@ -64,7 +76,7 @@ if __name__ == '__main__':
     commander.set_named_target('ready')
     s1 = rospy.Service('/franka_go', SetPositionCommand, move_service)
 
-    
+    #k1 = rospy.Service('/franka_turn', SetOrientationCommand, orientation_service) orientation service?
 
     initial_pose = commander.get_current_joint_values()
     picker = rospy.ServiceProxy('/picker', Picker)
@@ -85,7 +97,12 @@ if __name__ == '__main__':
             pose.pose.position.x += goal_x
             pose.pose.position.y += goal_y
             pose.pose.position.z += goal_z
-            
+            """
+            pose.pose.orientation.x += or_x
+            pose.pose.orientation.y += or_y
+            pose.pose.orientation.z += or_z
+            pose.pose.orientation.w += or_w
+            """
             """
             commander.set_pose_target(pose)
             """
