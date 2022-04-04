@@ -16,69 +16,60 @@ import copy
 
 #from quaternion import Quaternion
 
-"""
-sait_pose = [[-0.043824358700330635, -1.407510863404525, -0.09621197597605756, -2.560739132123672, -0.1060395849076424, 1.8124003873666128, 2.2862498113266243],\
-    [-0.043833065425262094, -0.74194375147751, 0.7254064318174334, -2.500672390231455, -0.21748089766392, 2.0266434956365966, -2.5544709886535997], \
-        [0.22393067168562034, -0.8255384451087148, -0.9542482062041979, -2.7442310036441735, -0.04799512968135342, 2.44511964003245, -2.862907029917516], \
-            [0.35283721951016206, -0.04709378091719478, -0.3728447161703779, -2.069211993736133, 0.027793894768218714, 2.0743370803197214, -2.389936514051067]]
-"""
-"""
-sait_pose = [[0.14300678089996954, -0.10571678531294118, -0.07464030598939565, -2.7972743033780665, -0.09443593322573465, 2.6184868192672726, 0.9441600122749915], \
-    [0.20483648538589472, -0.5162024200757345, -0.08793194310179205, -2.832637485306168, -0.09051715415693913, 2.3851425502882315, 1.0068076068858305], \
-        [0.17981217271666958, 0.05763151297527059, -0.10087284358557126, -2.42853943685302, -0.09175499143534237, 2.5060579707558346, 1.0189335042933623], \
-            [0.1559882919372414, 0.15908839865739535, -0.10338794352820072, -2.43950342163454, -0.09145850948757048, 2.579980320899429, 1.0050701806278939], \
-                [0.11066673615685915, -0.5184714858905757, -0.10175694096477053, -2.774070551286664, -0.09504724207849956, 2.6482053709030153, 0.9942121854126451]] 
-"""
+GOAL_TOLERANCE = 0.001 # actually I need to take it from MoveIt, but for now this is how it is
+ONLY_TAKE_POSITION = False
 
-sait_pose = [[0.14300678089996954, -0.10571678531294118, -0.07464030598939565, -2.7972743033780665, -0.09443593322573465, 2.6184868192672726, 0.9441600122749915], \
-    [0.20483648538589472, -0.5162024200757345, -0.08793194310179205, -2.832637485306168, -0.09051715415693913, 2.3851425502882315, 1.0068076068858305], \
-        [0.17981217271666958, 0.05763151297527059, -0.10087284358557126, -2.42853943685302, -0.09175499143534237, 2.5060579707558346, 1.0189335042933623], \
-            [-0.765061974650935, 0.18078561169013643, 0.7366162493602506, -2.545185200139096, -0.42422513886891605, 2.8533240747453994, 1.3186464768110846], \
-                [-0.7496816215180514, -1.0585833804620857, 0.8488889531419989, -2.8082135482587254, -0.4299711964668297, 2.4062439342236264, 2.3150185949305695]]
-goal_tolerance = 0.001 # actually I need to take it from MoveIt, but for now this is how it is
 
-def isReachedGoal(current_pose, goal_pose, goal_tolerance):
+def isReachedGoal(current_pose, goal_pose, GOAL_TOLERANCE):
     for curr, goal in zip(current_pose, goal_pose):
-        if abs(curr - goal) > goal_tolerance:
+        if abs(curr - goal) > GOAL_TOLERANCE:
             return False
     return True
 
 goal_x = 0.0
 goal_y = 0.0
 goal_z = 0.0
-or_x = 0.0
-or_y = 0.0
-or_z = 0.0
-or_w = 0.0
+goal_q_x = 0.0
+goal_q_y = 0.0
+goal_q_z = 0.0
+goal_q_w = 0.0
 is_there_a_goal = False
+is_goal_relative = False
+go_to_our_initial = False
 
 def move_service(req):
-    global goal_x, goal_y, goal_z, is_there_a_goal
+    global goal_x, goal_y, goal_z, is_there_a_goal, is_goal_relative, goal_q_x, goal_q_y, goal_q_z, goal_q_w, go_to_our_initial
     goal_x = req.x
     goal_y = req.y
     goal_z = req.z
-    is_there_a_goal = True
-    return True
 
-def orientation_service(req):
-    global or_x, or_y, or_z, or_w, is_there_a_goal
-    or_x = req.x
-    or_y = req.y
-    or_z = req.z
-    or_w = req.w
+    """ Now there is a bug in orientation
+    goal_q_x = req.q_x
+    goal_q_y = req.q_y
+    goal_q_z = req.q_z
+    goal_q_w = req.q_w
+    """
+    is_goal_relative = req.is_relative
+    go_to_our_initial = req.go_to_init
+
     is_there_a_goal = True
-    return True
+    return True, ""
 
 
 if __name__ == '__main__':
-    
     rospy.init_node('move_to_start')
     rospy.wait_for_message('move_group/status', GoalStatusArray)
     commander = MoveGroupCommander('panda_arm')
     commander.set_named_target('ready')
     s1 = rospy.Service('/franka_go', SetPositionCommand, move_service)
 
-    #k1 = rospy.Service('/franka_turn', SetOrientationCommand, orientation_service) orientation service?
+    if ONLY_TAKE_POSITION:
+        while True:
+            initial_pose = commander.get_current_joint_values()
+            initial_position = commander.get_current_pose()
+            print("Initial position: " + str(initial_position))
+            print("Initial pose: " + str(initial_pose))
+            sleep(1)
 
     initial_pose = commander.get_current_joint_values()
     picker = rospy.ServiceProxy('/picker', Picker)
@@ -90,15 +81,64 @@ if __name__ == '__main__':
     initial_position = commander.get_current_pose()
     print("get_active_joints: ", commander.get_active_joints())
 
+    # ----------------------
+    """
+    Initial pose: 
+    position: 
+        x: 0.3282550835138732
+        y: 0.05751661222418812
+        z: 0.6330740276406968
+    orientation: 
+        x: -0.9226185998157332
+        y: 0.3843317164009613
+        z: -0.029732857849977316
+        w: 0.013416713696730436
+    """
+    our_initial_pose = commander.get_current_pose()
+    our_initial_pose.pose.position.x = 0.3282550835138732
+    our_initial_pose.pose.position.y = 0.05751661222418812
+    our_initial_pose.pose.position.z = 0.6330740276406968
+    our_initial_pose.pose.orientation.x = -0.9226185998157332
+    our_initial_pose.pose.orientation.y = 0.3843317164009613
+    our_initial_pose.pose.orientation.z = -0.029732857849977316
+    our_initial_pose.pose.orientation.w = 0.013416713696730436
+
+    commander.set_pose_target(our_initial_pose)
+    plan1 = commander.plan()
+
+    commander.go(wait=True)
+
+
+
+
+    # ----------------------
+
+
     while True:
         try:
             if not is_there_a_goal:
                 sleep(0.1)
                 continue
-            pose = commander.get_current_pose()
-            pose.pose.position.x += goal_x
-            pose.pose.position.y += goal_y
-            pose.pose.position.z += goal_z
+            if go_to_our_initial:
+                commander.set_pose_target(our_initial_pose)
+                plan1 = commander.plan()
+                commander.go(wait=True)
+                go_to_our_initial = False
+                continue
+            elif is_goal_relative:
+                pose = commander.get_current_pose()
+                pose.pose.position.x += goal_x
+                pose.pose.position.y += goal_y
+                pose.pose.position.z += goal_z
+                pose.pose.orientation.x += goal_q_x
+                pose.pose.orientation.y += goal_q_y
+                pose.pose.orientation.z += goal_q_z
+                pose.pose.orientation.w += goal_q_w
+            else:
+                pose = commander.get_current_pose()
+                pose.pose.position.x = goal_x
+                pose.pose.position.y = goal_y
+                pose.pose.position.z = goal_z
             """
             pose.pose.orientation.x += or_x
             pose.pose.orientation.y += or_y
@@ -138,8 +178,12 @@ if __name__ == '__main__':
             commander.set_pose_target(pose)
             """
             
+            #path, fraction = commander.compute_cartesian_path(waypoints=[pose.pose], eef_step=0.01, jump_threshold=0.0)
             path, fraction = commander.compute_cartesian_path(waypoints=[pose.pose], eef_step=0.01, jump_threshold=0.0)
-            print("path is", path)
+            
+            path = commander.retime_trajectory(commander.get_current_state(), path, 0.1)
+            from pprint import pprint
+            pprint(path)
             commander.execute(path, wait=True)
 
             print("Moving to goal: ", pose.pose.position.x, pose.pose.position.y, pose.pose.position.z)
@@ -181,7 +225,7 @@ if __name__ == '__main__':
         print("Command sent!,", movement_count)
         print("Command sent!,", movement_count)
         
-        while(not isReachedGoal(commander.get_current_joint_values(), pose, goal_tolerance)):
+        while(not isReachedGoal(commander.get_current_joint_values(), pose, GOAL_TOLERANCE)):
             continue
         
         if(movement_count == 0):

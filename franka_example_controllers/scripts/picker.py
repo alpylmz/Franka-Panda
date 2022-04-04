@@ -16,7 +16,7 @@ force = 70.0
 goalID = 0
 
 def Pick(req):
-    global is_holding, width, speed, force
+    global is_holding, width, speed, force, action
     if is_holding == False:
         width = req.width
         speed = req.speed
@@ -38,7 +38,8 @@ if __name__ == '__main__':
             pub.publish(GraspActionGoal(goal=GraspGoal(width = 0.01, speed = 0.5, force=-10.0, epsilon=GraspEpsilon(inner = 0.0001, outer = 0.0001))))
             print("picking")
         else:
-            pub2.publish(MoveActionGoal(goal = MoveGoal(width=0.03, speed = speed)))
+            pub2.publish(MoveActionGoal(goal = MoveGoal(width=0.04, speed = speed)))
             #pub.publish(GraspActionGoal(goal=GraspGoal(width = 0.04, speed = 0.5, force=-10.0, epsilon=GraspEpsilon(inner = 0.0001, outer = 0.0001))))
             print("not picking")
             pass
+        
