@@ -11,7 +11,7 @@
 franka::Gripper* gripper;
 
 
-void handle_service_request(franka_gripper::GripperCommand::Request  &req,
+bool handle_service_request(franka_gripper::GripperCommand::Request  &req,
                             franka_gripper::GripperCommand::Response &res)
 {
     try {
