@@ -1,0 +1,7 @@
+float64 width
+float64 speed
+float64 force
+bool want_to_pick
+bool homing
+---
+bool success

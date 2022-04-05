@@ -29,6 +29,10 @@ add_message_files(
   FILES GraspEpsilon.msg
 )
 
+add_service_files(FILES
+  GripperCommand.srv
+)
+
 generate_messages(DEPENDENCIES actionlib_msgs)
 
 catkin_package(
@@ -86,9 +90,31 @@ target_include_directories(franka_gripper_node SYSTEM PUBLIC
   ${catkin_INCLUDE_DIRS}
 )
 
+### added
+add_executable(franka_gripper_service
+  src/franka_gripper_service.cpp
+)
+
+add_dependencies(franka_gripper_service
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+  ${catkin_EXPORTED_TARGETS}
+  franka_gripper
+)
+
+target_link_libraries(franka_gripper_service
+   ${catkin_LIBRARIES}
+   franka_gripper
+)
+
+target_include_directories(franka_gripper_service SYSTEM PUBLIC
+  ${catkin_INCLUDE_DIRS}
+)
+###
+
 ## Installation
 install(TARGETS franka_gripper
                 franka_gripper_node
+                franka_gripper_service
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
@@ -116,6 +142,6 @@ if(CLANG_TOOLS)
   add_format_target(franka_gripper FILES ${SOURCES} ${HEADERS})
   add_tidy_target(franka_gripper
     FILES ${SOURCES}
-    DEPENDS franka_gripper franka_gripper_node
+    DEPENDS franka_gripper franka_gripper_node franka_gripper_service
   )
 endif()
