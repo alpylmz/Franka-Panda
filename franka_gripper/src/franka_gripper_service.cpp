@@ -27,7 +27,7 @@ void handle_service_request(franka_gripper::GripperCommand::Request  &req,
             franka::GripperState gripper_state = gripper.readOnce();
             if (gripper_state.max_width < req.width) {
                 std::cout << "The stated width is out of limits." << std::endl;
-                return -1;
+                success = false;
             }
 
             if (!gripper.grasp(req.width, req.speed, req.force)) {
