@@ -11,8 +11,10 @@ import geometry_msgs
 from std_msgs.msg import Float32
 import actionlib
 from franka_msgs.srv import SetPositionCommand
+from franka_msgs.srv import SetJointPositionCommand
 from franka_msgs.srv import SetOrientationCommand
 import copy
+from scipy.interpolate import interp1d
 
 #from quaternion import Quaternion
 
@@ -37,8 +39,53 @@ is_there_a_goal = False
 is_goal_relative = False
 go_to_our_initial = False
 
+is_goal_jointwise = False
+goal_joint_1 = 0.0
+goal_joint_2 = 0.0
+goal_joint_3 = 0.0
+goal_joint_4 = 0.0
+goal_joint_5 = 0.0
+goal_joint_6 = 0.0
+goal_joint_7 = 0.0
+
+# This function takes both current joint state and the goal joint positions
+# Then, it interpolates the positions, and return a list of joint positions
+def interpolate_joint_positions(current_joint_state, goal_joint_state):
+    trajectory = []
+    # I am dividing the path into 100 parts
+    for i in range(100):
+        # I am creating a list of joint positions
+        joint_positions = []
+        
+        for j in range(7):
+            # difference
+            diff = goal_joint_state[j] - current_joint_state[j]
+            # I am dividing the difference by 100
+            diff = diff / 100
+            # I am adding the current joint position to the difference
+            joint_positions.append(current_joint_state[j] + diff * i)
+        
+        # I am appending the joint positions to the trajectory
+        trajectory.append(joint_positions)
+
+    return trajectory
+
+
+def joint_move_service(req):
+    global goal_joint_1, goal_joint_2, goal_joint_3, goal_joint_4, goal_joint_5, goal_joint_6, goal_joint_7, is_goal_jointwise, is_there_a_goal
+    goal_joint_1 = req.joint_1
+    goal_joint_2 = req.joint_2
+    goal_joint_3 = req.joint_3
+    goal_joint_4 = req.joint_4
+    goal_joint_5 = req.joint_5
+    goal_joint_6 = req.joint_6
+    goal_joint_7 = req.joint_7
+    is_goal_jointwise = True
+    is_there_a_goal = True
+    return True, ""
+
 def move_service(req):
-    global goal_x, goal_y, goal_z, is_there_a_goal, is_goal_relative, goal_q_x, goal_q_y, goal_q_z, goal_q_w, go_to_our_initial
+    global goal_x, goal_y, goal_z, is_there_a_goal, is_goal_relative, goal_q_x, goal_q_y, goal_q_z, goal_q_w, go_to_our_initial, is_goal_jointwise
     goal_x = req.x
     goal_y = req.y
     goal_z = req.z
@@ -51,6 +98,7 @@ def move_service(req):
     """
     is_goal_relative = req.is_relative
     go_to_our_initial = req.go_to_init
+    is_goal_jointwise = False
 
     is_there_a_goal = True
     return True, ""
@@ -62,6 +110,7 @@ if __name__ == '__main__':
     commander = MoveGroupCommander('panda_arm')
     commander.set_named_target('ready')
     s1 = rospy.Service('/franka_go', SetPositionCommand, move_service)
+    s2 = rospy.Service('/franka_go_joint', SetJointPositionCommand, joint_move_service)
 
     if ONLY_TAKE_POSITION:
         while True:
@@ -119,7 +168,9 @@ if __name__ == '__main__':
             if not is_there_a_goal:
                 sleep(0.1)
                 continue
-            if go_to_our_initial:
+            if is_goal_jointwise:
+                pass
+            elif go_to_our_initial:
                 commander.set_pose_target(our_initial_pose)
                 plan1 = commander.plan()
                 commander.go(wait=True)
