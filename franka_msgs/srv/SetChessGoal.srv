@@ -1,0 +1,4 @@
+string chess_place
+---
+bool success
+string error

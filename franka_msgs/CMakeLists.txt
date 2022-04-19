@@ -16,6 +16,8 @@ add_service_files(FILES
   Picker.srv
   SetPositionCommand.srv
   SetOrientationCommand.srv
+  SetJointPositionCommand.srv
+  SetChessGoal.srv
 )
 
 add_action_files(FILES ErrorRecovery.action)

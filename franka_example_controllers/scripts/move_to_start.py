@@ -13,8 +13,10 @@ import actionlib
 from franka_msgs.srv import SetPositionCommand
 from franka_msgs.srv import SetJointPositionCommand
 from franka_msgs.srv import SetOrientationCommand
+from franka_msgs.srv import SetChessGoal
 import copy
 from scipy.interpolate import interp1d
+import json
 
 #from quaternion import Quaternion
 
@@ -48,6 +50,13 @@ goal_joint_5 = 0.0
 goal_joint_6 = 0.0
 goal_joint_7 = 0.0
 
+is_goal_chess_place = False
+aim_place = None # will be string, as "a1", "d8"
+chess_joints = None
+with open("/home/alp/franka/src/Franka-Panda/franka_example_controllers/scripts/joint_positions.json", "r") as f:
+    chess_joints = json.load(f)
+
+
 # This function takes both current joint state and the goal joint positions
 # Then, it interpolates the positions, and return a list of joint positions
 def interpolate_joint_positions(current_joint_state, goal_joint_state):
@@ -70,9 +79,17 @@ def interpolate_joint_positions(current_joint_state, goal_joint_state):
 
     return trajectory
 
+def chess_move_service(req):
+    global aim_place, is_goal_chess_place, is_there_a_goal, is_goal_jointwise
+    aim_place = req.chess_place
+    is_goal_chess_place = True
+    is_there_a_goal = True
+    is_goal_jointwise = False
+    return True, ""
+
 
 def joint_move_service(req):
-    global goal_joint_1, goal_joint_2, goal_joint_3, goal_joint_4, goal_joint_5, goal_joint_6, goal_joint_7, is_goal_jointwise, is_there_a_goal
+    global goal_joint_1, goal_joint_2, goal_joint_3, goal_joint_4, goal_joint_5, goal_joint_6, goal_joint_7, is_goal_jointwise, is_there_a_goal, is_goal_chess_place
     goal_joint_1 = req.joint_1
     goal_joint_2 = req.joint_2
     goal_joint_3 = req.joint_3
@@ -82,10 +99,11 @@ def joint_move_service(req):
     goal_joint_7 = req.joint_7
     is_goal_jointwise = True
     is_there_a_goal = True
+    is_goal_chess_place = False
     return True, ""
 
 def move_service(req):
-    global goal_x, goal_y, goal_z, is_there_a_goal, is_goal_relative, goal_q_x, goal_q_y, goal_q_z, goal_q_w, go_to_our_initial, is_goal_jointwise
+    global goal_x, goal_y, goal_z, is_there_a_goal, is_goal_relative, goal_q_x, goal_q_y, goal_q_z, goal_q_w, go_to_our_initial, is_goal_jointwise, is_goal_chess_place
     goal_x = req.x
     goal_y = req.y
     goal_z = req.z
@@ -99,6 +117,7 @@ def move_service(req):
     is_goal_relative = req.is_relative
     go_to_our_initial = req.go_to_init
     is_goal_jointwise = False
+    is_goal_chess_place = False
 
     is_there_a_goal = True
     return True, ""
@@ -111,6 +130,7 @@ if __name__ == '__main__':
     commander.set_named_target('ready')
     s1 = rospy.Service('/franka_go', SetPositionCommand, move_service)
     s2 = rospy.Service('/franka_go_joint', SetJointPositionCommand, joint_move_service)
+    s3 = rospy.Service('/franka_go_chess', SetChessGoal, chess_move_service)
 
     if ONLY_TAKE_POSITION:
         while True:
@@ -126,9 +146,9 @@ if __name__ == '__main__':
     is_picking = False
 
     # to neutral pose
-    commander.go(wait=True)
-    initial_position = commander.get_current_pose()
-    print("get_active_joints: ", commander.get_active_joints())
+    #commander.go(wait=True)
+    #initial_position = commander.get_current_pose()
+    #print("get_active_joints: ", commander.get_active_joints())
 
     # ----------------------
     """
@@ -152,12 +172,16 @@ if __name__ == '__main__':
     our_initial_pose.pose.orientation.z = -0.029732857849977316
     our_initial_pose.pose.orientation.w = 0.013416713696730436
 
-    commander.set_pose_target(our_initial_pose)
-    plan1 = commander.plan()
+    #commander.set_pose_target(our_initial_pose)
+    #plan1 = commander.plan()
 
-    commander.go(wait=True)
+    #commander.go(wait=True)
+    initial_position = commander.get_current_pose()
+    print("get current joint values: ", commander.get_current_joint_values())
 
-
+    initial_joints = [0.8807196933525263, -0.8014431536310861, -0.42209067821502666, -2.1911595741634415, -0.33243660358600874, 1.4980820045918766, 1.323550466756026]
+    #[-0.3426358018005103, -0.7527097266085973, 0.3211428673806972, -2.1997036707603113, 0.22632897217768974, 1.5394524623788894, 0.7070815159243338]
+    #initial_joints = [0.19629807516847006, -0.7055285141228648, 0.010857086453996393, -2.2712353889079404, 0.032713600012991166, 1.5440953356424967, 0.9812845707889041]
 
 
     # ----------------------
@@ -171,10 +195,34 @@ if __name__ == '__main__':
             if is_goal_jointwise:
                 pass
             elif go_to_our_initial:
-                commander.set_pose_target(our_initial_pose)
+                print("Going to our initial pose")
+                commander.set_joint_value_target(initial_joints)
                 plan1 = commander.plan()
                 commander.go(wait=True)
                 go_to_our_initial = False
+                is_there_a_goal = False
+
+                continue
+            elif is_goal_chess_place:
+                print("Going to chess place")
+                try:
+                    goal_joints = chess_joints[aim_place]
+                    print("Goal joints: " + str(goal_joints))
+                except:
+                    print("There is no such place")
+                    is_there_a_goal = False
+                    is_goal_chess_place = False
+                    continue
+                try:
+                    print("current joints are " + str(commander.get_current_joint_values()))
+                    commander.set_joint_value_target(goal_joints[:7])
+                    plan1 = commander.plan()
+                    print("Planned and going!")
+                    commander.go(wait=True)
+                except:
+                    print("Failed to execute plan...")
+                is_there_a_goal = False
+                is_goal_chess_place = False    
                 continue
             elif is_goal_relative:
                 pose = commander.get_current_pose()
