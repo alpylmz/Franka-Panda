@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import rospy
-from moveit_commander import MoveGroupCommander
+from moveit_commander import MoveGroupCommander, PlanningSceneInterface
 from actionlib_msgs.msg import GoalStatusArray, GoalID
 from time import sleep
 from franka_msgs.srv import Picker
@@ -14,9 +14,11 @@ from franka_msgs.srv import SetPositionCommand
 from franka_msgs.srv import SetJointPositionCommand
 from franka_msgs.srv import SetOrientationCommand
 from franka_msgs.srv import SetChessGoal
+from moveit_msgs.msg import PlanningScene
 import copy
 from scipy.interpolate import interp1d
 import json
+from functools import partial
 
 #from quaternion import Quaternion
 
@@ -51,6 +53,8 @@ goal_joint_6 = 0.0
 goal_joint_7 = 0.0
 
 is_goal_chess_place = False
+is_goal_reached = False
+
 aim_place = None # will be string, as "a1", "d8"
 chess_joints = None
 with open("/home/alp/franka/src/Franka-Panda/franka_example_controllers/scripts/joint_positions.json", "r") as f:
@@ -103,7 +107,7 @@ def joint_move_service(req):
     return True, ""
 
 def move_service(req):
-    global goal_x, goal_y, goal_z, is_there_a_goal, is_goal_relative, goal_q_x, goal_q_y, goal_q_z, goal_q_w, go_to_our_initial, is_goal_jointwise, is_goal_chess_place
+    global goal_x, goal_y, goal_z, is_there_a_goal, is_goal_relative, goal_q_x, goal_q_y, goal_q_z, goal_q_w, go_to_our_initial, is_goal_jointwise, is_goal_chess_place, is_goal_reached
     goal_x = req.x
     goal_y = req.y
     goal_z = req.z
@@ -120,7 +124,69 @@ def move_service(req):
     is_goal_chess_place = False
 
     is_there_a_goal = True
+
+    # wait!
+    is_goal_reached = False
+    # I know this is terrible, will decide and complete action client asap
+    # I am just not sure if action client is really a good idea
+    while not is_goal_reached:
+        print("waiting for the movement!")
+        sleep(0.5)
+
     return True, ""
+
+
+def addObstacles():
+    # I am going to put these obstacles by assuming that the starting position will be init position!
+    scene = PlanningSceneInterface(synchronous=True) # It will NOT WORK without synchronous=True, check https://github.com/ros-planning/moveit/issues/2623
+
+    box_name = "left_obstacle"
+    collision_object_left = geometry_msgs.msg.PoseStamped()
+    collision_object_left.header.frame_id = "panda_link0"
+    collision_object_left.pose.position.y = -0.4
+    collision_object_left.pose.orientation.w = 1.0
+    scene.add_box(box_name, collision_object_left, size=(10, 0.1, 10))
+
+    box_name = "right_obstacle"
+    collision_object_left = geometry_msgs.msg.PoseStamped()
+    collision_object_left.header.frame_id = "panda_link0"
+    collision_object_left.pose.position.y = 0.4
+    collision_object_left.pose.orientation.w = 1.0
+    scene.add_box(box_name, collision_object_left, size=(10, 0.1, 10))
+
+    box_name = "back_obstacle"
+    collision_object_left = geometry_msgs.msg.PoseStamped()
+    collision_object_left.header.frame_id = "panda_link0"
+    collision_object_left.pose.position.x = -0.30
+    collision_object_left.pose.orientation.w = 1.0
+    scene.add_box(box_name, collision_object_left, size=(0.1, 10, 10))
+
+    box_name = "low_obstacle"
+    collision_object_left = geometry_msgs.msg.PoseStamped()
+    collision_object_left.header.frame_id = "panda_link0"
+    collision_object_left.pose.position.z = -0.2
+    collision_object_left.pose.orientation.w = 1.0
+    scene.add_box(box_name, collision_object_left, size=(10, 10, 0.1))
+
+    """
+    ## attach an object to gripper
+    object_name = "gripper_obstacle"
+    object_pose = geometry_msgs.msg.PoseStamped()
+    eef_link = commander.get_end_effector_link()
+    grasping_group = "hand"
+
+    box_name = "gripper_obstacle"
+    collision_object_left = geometry_msgs.msg.PoseStamped()
+    collision_object_left.header.frame_id = eef_link
+    collision_object_left.pose.position.z = 0.075
+    collision_object_left.pose.orientation.w = 1.0
+    scene.add_box(box_name, collision_object_left, size=(0.05, 0.05, 0.15))
+
+    object_pose.header.frame_id = eef_link
+    scene.attach_box(eef_link, object_name, touch_links=[eef_link])
+    """
+
+
 
 
 if __name__ == '__main__':
@@ -131,6 +197,10 @@ if __name__ == '__main__':
     s1 = rospy.Service('/franka_go', SetPositionCommand, move_service)
     s2 = rospy.Service('/franka_go_joint', SetJointPositionCommand, joint_move_service)
     s3 = rospy.Service('/franka_go_chess', SetChessGoal, chess_move_service)
+
+    #move_action = actionlib.SimpleActionServer('/franka_go_action', MoveToPositionAction, execute_cb=partial(move_action, commander = commander), auto_start=True)
+
+    addObstacles()
 
     if ONLY_TAKE_POSITION:
         while True:
@@ -202,6 +272,7 @@ if __name__ == '__main__':
                 commander.go(wait=True)
                 go_to_our_initial = False
                 is_there_a_goal = False
+                is_goal_reached = True
 
                 continue
             elif is_goal_chess_place:
@@ -277,6 +348,7 @@ if __name__ == '__main__':
                                     min(temp_pose.pose.position.z, pose.pose.position.z) - 0.01, max(temp_pose.pose.position.z, pose.pose.position.z) + 0.01])
             commander.set_pose_target(pose)
             """
+
             
             #path, fraction = commander.compute_cartesian_path(waypoints=[pose.pose], eef_step=0.01, jump_threshold=0.0)
             path, fraction = commander.compute_cartesian_path(waypoints=[pose.pose], eef_step=0.01, jump_threshold=0.0)
@@ -286,16 +358,19 @@ if __name__ == '__main__':
             pprint(path)
             commander.execute(path, wait=True)
 
-            print("Moving to goal: ", pose.pose.position.x, pose.pose.position.y, pose.pose.position.z)
+            rospy.loginfo("Moving to goal: %f, %f, %f", pose.pose.position.x, pose.pose.position.y, pose.pose.position.z)
             #plan1 = commander.plan()
 
             #commander.go(wait=True)
-            print("Reached goal")
+            rospy.loginfo("Reached goal")
             is_there_a_goal = False
+            is_goal_reached = True
             print(commander.get_current_pose())
         except Exception as ex:
-            print(ex)
-            print("Failed to plan")
+            rospy.logerr(ex)
+            rospy.logerr("Failed to move to goal")
+            is_there_a_goal = False
+            is_goal_reached = True
         
 """
 if __name__ == '__main__':
