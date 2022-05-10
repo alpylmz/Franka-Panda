@@ -205,7 +205,7 @@ if __name__ == '__main__':
 
                 continue
             elif is_goal_chess_place:
-                print("Going to chess place")
+                print("Going to chess place" + aim_place)
                 try:
                     goal_joints = chess_joints[aim_place]
                     print("Goal joints: " + str(goal_joints))
