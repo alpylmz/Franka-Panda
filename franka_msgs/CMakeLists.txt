@@ -20,7 +20,7 @@ add_service_files(FILES
   SetChessGoal.srv
 )
 
-add_action_files(FILES ErrorRecovery.action)
+add_action_files(FILES ErrorRecovery.action Move.action)
 
 generate_messages(DEPENDENCIES std_msgs actionlib_msgs)
 
