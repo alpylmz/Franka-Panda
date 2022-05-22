@@ -29,7 +29,7 @@ def handle_hri_service(req):
         resp.success = True
         return resp
     else:
-        if game_state < 0:
+        if game_state < 0.5:
             goal = sad_trajectory
             resp = HRIResponse()
             resp.trajGoal = goal
