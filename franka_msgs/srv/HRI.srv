@@ -1,0 +1,4 @@
+int32 code
+---
+bool success
+control_msgs/FollowJointTrajectoryGoal trajGoal
