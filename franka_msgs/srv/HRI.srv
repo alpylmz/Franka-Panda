@@ -1,4 +1,5 @@
-int32 code
+bool breathing
+int32 game_status
 ---
 bool success
 control_msgs/FollowJointTrajectoryGoal trajGoal
