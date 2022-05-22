@@ -10,15 +10,39 @@ import json
 from control_msgs.msg import FollowJointTrajectoryAction, FollowJointTrajectoryGoal
 from trajectory_msgs.msg import JointTrajectoryPoint
 from std_msgs.msg import Float64MultiArray
-from franka_msgs.srv import HRI,HRIResponse
+from franka_msgs.srv import HRI, HRIResponse, HRIRequest
+
+breath_trajectory = FollowJointTrajectoryGoal()
+happy_trajectory = FollowJointTrajectoryGoal()
+sad_trajectory = FollowJointTrajectoryGoal()
+
 
 def handle_hri_service(req):
+    game_state = req.game_status
+    breath = req.breathing
+    
+    
+    if(breath):
+        goal = breath_trajectory
+        resp = HRIResponse()
+        resp.trajGoal = goal
+        resp.success = True
+        return resp
+    else:
+        if game_state < 50:
+            goal = sad_trajectory
+            resp = HRIResponse()
+            resp.trajGoal = goal
+            resp.success = True
+            return resp
+        else:
+            goal = happy_trajectory
+            resp = HRIResponse()
+            resp.trajGoal = goal
+            resp.success = True
+            return resp            
     ## how to decide which traj to send?=?=?=?=?
-    goal = load_traj_from_json("traj1.json")
-    resp = HRIResponse()
-    resp.trajGoal = goal
-    resp.success = True
-    return resp
+    
 
 def load_traj_from_json(file_name):
     goal = FollowJointTrajectoryGoal()
@@ -39,6 +63,13 @@ def main():
 
     s = rospy.Service('hri_traj', HRI, handle_hri_service)
 
+    global breath_trajectory
+    global happy_trajectory
+    global sad_trajectory
+
+    breath_trajectory = load_traj_from_json("trajectories/breath_trajectory.json")
+    happy_trajectory = load_traj_from_json("trajectories/happy_trajectory.json")
+    sad_trajectory  = load_traj_from_json("trajectories/sad_trajectory.json")
 
     rospy.spin()
 
