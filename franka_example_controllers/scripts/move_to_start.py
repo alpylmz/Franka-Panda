@@ -14,11 +14,13 @@ from franka_msgs.srv import SetPositionCommand
 from franka_msgs.srv import SetJointPositionCommand
 from franka_msgs.srv import SetOrientationCommand
 from franka_msgs.srv import SetChessGoal
+from franka_msgs.srv import SetTrajectoryCommand
 from moveit_msgs.msg import PlanningScene
 import copy
 from scipy.interpolate import interp1d
 import json
 from functools import partial
+from control_msgs.msg import FollowJointTrajectoryGoal, FollowJointTrajectoryAction
 
 #from quaternion import Quaternion
 
@@ -42,6 +44,7 @@ goal_q_w = 0.0
 is_there_a_goal = False
 is_goal_relative = False
 go_to_our_initial = False
+is_goal_trajectory = False
 
 is_goal_jointwise = False
 goal_joint_1 = 0.0
@@ -54,6 +57,7 @@ goal_joint_7 = 0.0
 
 is_goal_chess_place = False
 is_goal_reached = False
+goal_trajectory = None
 
 aim_place = None # will be string, as "a1", "d8"
 chess_joints = None
@@ -84,16 +88,17 @@ def interpolate_joint_positions(current_joint_state, goal_joint_state):
     return trajectory
 
 def chess_move_service(req):
-    global aim_place, is_goal_chess_place, is_there_a_goal, is_goal_jointwise
+    global aim_place, is_goal_chess_place, is_there_a_goal, is_goal_jointwise, is_goal_trajectory
     aim_place = req.chess_place
     is_goal_chess_place = True
     is_there_a_goal = True
     is_goal_jointwise = False
+    is_goal_trajectory = False
     return True, ""
 
 
 def joint_move_service(req):
-    global goal_joint_1, goal_joint_2, goal_joint_3, goal_joint_4, goal_joint_5, goal_joint_6, goal_joint_7, is_goal_jointwise, is_there_a_goal, is_goal_chess_place
+    global goal_joint_1, goal_joint_2, goal_joint_3, goal_joint_4, goal_joint_5, goal_joint_6, goal_joint_7, is_goal_jointwise, is_there_a_goal, is_goal_chess_place, is_goal_trajectory
     goal_joint_1 = req.joint_1
     goal_joint_2 = req.joint_2
     goal_joint_3 = req.joint_3
@@ -104,10 +109,11 @@ def joint_move_service(req):
     is_goal_jointwise = True
     is_there_a_goal = True
     is_goal_chess_place = False
+    is_goal_trajectory = False
     return True, ""
 
 def move_service(req):
-    global goal_x, goal_y, goal_z, is_there_a_goal, is_goal_relative, goal_q_x, goal_q_y, goal_q_z, goal_q_w, go_to_our_initial, is_goal_jointwise, is_goal_chess_place, is_goal_reached
+    global goal_x, goal_y, goal_z, is_there_a_goal, is_goal_relative, goal_q_x, goal_q_y, goal_q_z, goal_q_w, go_to_our_initial, is_goal_jointwise, is_goal_chess_place, is_goal_reached, is_goal_trajectory
     goal_x = req.x
     goal_y = req.y
     goal_z = req.z
@@ -122,6 +128,7 @@ def move_service(req):
     go_to_our_initial = req.go_to_init
     is_goal_jointwise = False
     is_goal_chess_place = False
+    is_goal_trajectory = False
 
     is_there_a_goal = True
 
@@ -134,6 +141,21 @@ def move_service(req):
         sleep(0.5)
 
     return True, ""
+
+def trajectory_service(req):
+    global goal_x, goal_y, goal_z, is_there_a_goal, is_goal_relative, goal_q_x, goal_q_y, goal_q_z, goal_q_w, go_to_our_initial, is_goal_jointwise, is_goal_chess_place, is_goal_reached, is_goal_trajectory, goal_trajectory
+
+    goal_trajectory = req.trajGoal
+    
+    is_goal_relative = False
+    is_goal_jointwise = False
+    is_goal_chess_place = False
+    is_goal_reached = False
+
+    is_goal_trajectory = True
+    is_there_a_goal = True
+    
+    return True
 
 
 def addObstacles():
@@ -197,6 +219,11 @@ if __name__ == '__main__':
     s1 = rospy.Service('/franka_go', SetPositionCommand, move_service)
     s2 = rospy.Service('/franka_go_joint', SetJointPositionCommand, joint_move_service)
     s3 = rospy.Service('/franka_go_chess', SetChessGoal, chess_move_service)
+    s4 = rospy.Service('/franka_trajectory', SetTrajectoryCommand, trajectory_service)
+
+    trajectory_client = actionlib.SimpleActionClient('/position_joint_trajectory_controller/follow_joint_trajectory', FollowJointTrajectoryAction)
+    trajectory_client.wait_for_server()
+    rospy.loginfo("Connected to trajectory action server")
 
     #move_action = actionlib.SimpleActionServer('/franka_go_action', MoveToPositionAction, execute_cb=partial(move_action, commander = commander), auto_start=True)
 
@@ -245,10 +272,7 @@ if __name__ == '__main__':
     #commander.set_pose_target(our_initial_pose)
     #plan1 = commander.plan()
 
-    #commander.go(wait=True)
-    initial_position = commander.get_current_pose()
-    print("get current joint values: ", commander.get_current_joint_values())
-
+    #commander.go(wait=True)is_goal_jointwise
     #initial_joints = [0.8807196933525263, -0.8014431536310861, -0.42209067821502666, -2.1911595741634415, -0.33243660358600874, 1.4980820045918766, 1.323550466756026]
     initial_joints = [0.1525394261890009, -0.08124570311546929, -0.07294265516092496, -1.5018837461405505, 0.006697758157634073, 1.4245549732844034, 0.878600022062846]
     #[-0.3426358018005103, -0.7527097266085973, 0.3211428673806972, -2.1997036707603113, 0.22632897217768974, 1.5394524623788894, 0.7070815159243338]
@@ -263,7 +287,10 @@ if __name__ == '__main__':
             if not is_there_a_goal:
                 sleep(0.1)
                 continue
-            if is_goal_jointwise:
+            if is_goal_trajectory:
+                #trajectory_client.send_goal(goal_trajectory)
+                continue
+            elif is_goal_jointwise:
                 pass
             elif go_to_our_initial:
                 print("Going to our initial pose")
@@ -310,44 +337,7 @@ if __name__ == '__main__':
                 pose.pose.position.x = goal_x
                 pose.pose.position.y = goal_y
                 pose.pose.position.z = goal_z
-            """
-            pose.pose.orientation.x += or_x
-            pose.pose.orientation.y += or_y
-            pose.pose.orientation.z += or_z
-            pose.pose.orientation.w += or_w
-            """
-            """
-            commander.set_pose_target(pose)
-            """
-            """
-            commander.set_position_target([pose.pose.position.x, pose.pose.position.y, pose.pose.position.z])
-            """
-            """
-            commander.set_pose_target(pose)
-            """
-            """
-            temp_pose = commander.get_current_pose()
-            commander.set_workspace([min(temp_pose.pose.position.x, pose.pose.position.x) - 0.1, max(temp_pose.pose.position.x, pose.pose.position.x) + 0.1, \
-                                    min(temp_pose.pose.position.y, pose.pose.position.y) - 0.1, max(temp_pose.pose.position.y, pose.pose.position.y) + 0.1, \
-                                    min(temp_pose.pose.position.z, pose.pose.position.z) - 0.1, max(temp_pose.pose.position.z, pose.pose.position.z) + 0.1])
-            commander.set_position_target([pose.pose.position.x, pose.pose.position.y, pose.pose.position.z])
-            """
-            """
-            temp_pose = commander.get_current_pose()
-            commander.set_workspace([min(temp_pose.pose.position.x, pose.pose.position.x) - 0.1, max(temp_pose.pose.position.x, pose.pose.position.x) + 0.1, \
-                                    min(temp_pose.pose.position.y, pose.pose.position.y) - 0.1, max(temp_pose.pose.position.y, pose.pose.position.y) + 0.1, \
-                                    min(temp_pose.pose.position.z, pose.pose.position.z) - 0.1, max(temp_pose.pose.position.z, pose.pose.position.z) + 0.1])
-            commander.set_pose_target(pose)
-            """
 
-            """ NOT BAD
-            temp_pose = commander.get_current_pose()
-
-            commander.set_workspace([min(temp_pose.pose.position.x, pose.pose.position.x) - 0.01, max(temp_pose.pose.position.x, pose.pose.position.x) + 0.01, \
-                                    min(temp_pose.pose.position.y, pose.pose.position.y) - 0.01, max(temp_pose.pose.position.y, pose.pose.position.y) + 0.01, \
-                                    min(temp_pose.pose.position.z, pose.pose.position.z) - 0.01, max(temp_pose.pose.position.z, pose.pose.position.z) + 0.01])
-            commander.set_pose_target(pose)
-            """
 
             
             #path, fraction = commander.compute_cartesian_path(waypoints=[pose.pose], eef_step=0.01, jump_threshold=0.0)
@@ -372,46 +362,3 @@ if __name__ == '__main__':
             is_there_a_goal = False
             is_goal_reached = True
         
-"""
-if __name__ == '__main__':
-    rospy.init_node('move_to_start')
-    rospy.wait_for_message('move_group/status', GoalStatusArray)
-    commander = MoveGroupCommander('panda_arm')
-    commander.set_named_target('ready')
-    initial_pose = commander.get_current_joint_values()
-    picker = rospy.ServiceProxy('/picker', Picker)
-    movement_count = 0
-    is_picking = False
-    for pose in sait_pose:
-        print("sending command")
-        pose = geometry_msgs.msg.Pose()
-        pose.target_pose.orientation.w = 1.0
-        pose.target_pose.position.x = 0.5
-        pose.target_pose.position.y = 0.0
-        pose.target_pose.position.z = 0.5
-        commander.go(pose)
-        print("Command sent!,", movement_count)
-        print("Command sent!,", movement_count)
-        print("Command sent!,", movement_count)
-        print("Command sent!,", movement_count)
-        print("Command sent!,", movement_count)
-        print("Command sent!,", movement_count)
-        print("Command sent!,", movement_count)
-        print("Command sent!,", movement_count)
-        print("Command sent!,", movement_count)
-        
-        while(not isReachedGoal(commander.get_current_joint_values(), pose, GOAL_TOLERANCE)):
-            continue
-        
-        if(movement_count == 0):
-            picker(0.001, 0.5, 50)
-            sleep(1)
-            is_picking = True
-        elif(movement_count == 3):
-            picker(0.1, 0.5, 50)
-            sleep(1)
-            is_picking = False
-            
-
-        movement_count += 1
-"""

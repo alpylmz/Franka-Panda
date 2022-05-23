@@ -19,6 +19,7 @@ add_service_files(FILES
   SetJointPositionCommand.srv
   SetChessGoal.srv
   HRI.srv
+  SetTrajectoryCommand.srv
 )
 
 add_action_files(FILES ErrorRecovery.action Move.action)

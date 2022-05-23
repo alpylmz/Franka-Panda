@@ -1,10 +1,4 @@
-import roslib
 import rospy
-import actionlib
-import moveit_commander
-import time
-import numpy as np
-import rospkg
 import json
 
 from control_msgs.msg import FollowJointTrajectoryAction, FollowJointTrajectoryGoal
@@ -24,6 +18,7 @@ def handle_hri_service(req):
     
     if(breath):
         goal = breath_trajectory
+        goal.trajectory.header.stamp = rospy.Time.now() + rospy.Duration(1)
         resp = HRIResponse()
         resp.trajGoal = goal
         resp.success = True
@@ -31,12 +26,14 @@ def handle_hri_service(req):
     else:
         if game_state < 0.5:
             goal = sad_trajectory
+            goal.trajectory.header.stamp = rospy.Time.now() + rospy.Duration(1)
             resp = HRIResponse()
             resp.trajGoal = goal
             resp.success = True
             return resp
         else:
             goal = happy_trajectory
+            goal.trajectory.header.stamp = rospy.Time.now() + rospy.Duration(1)
             resp = HRIResponse()
             resp.trajGoal = goal
             resp.success = True
@@ -54,7 +51,7 @@ def load_traj_from_json(file_name):
         goal.trajectory.points[z].positions = f["points"][z]
         goal.trajectory.points[z].time_from_start = rospy.Duration(f["times_from_start"][z])
     
-    goal.trajectory.header.stamp = rospy.Time.now()# + rospy.Duration(1)
+    goal.trajectory.header.stamp = rospy.Time.now() + rospy.Duration(1)
     goal.trajectory.joint_names = ["panda_joint1", "panda_joint2", "panda_joint3", "panda_joint4", "panda_joint5", "panda_joint6","panda_joint7"]
     return goal
 
