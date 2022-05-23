@@ -127,6 +127,11 @@ def move_service(req):
     goal_q_z = req.q_z
     goal_q_w = req.q_w
     """
+    goal_q_x = req.q_x
+    goal_q_y = req.q_y
+    goal_q_z = req.q_z
+    goal_q_w = req.q_w
+    
     is_goal_relative = req.is_relative
     go_to_our_initial = req.go_to_init
     go_to_side_vision_init = req.go_to_side_vision_init
@@ -220,6 +225,11 @@ if __name__ == '__main__':
     rospy.wait_for_message('move_group/status', GoalStatusArray)
     commander = MoveGroupCommander('panda_arm')
     commander.set_named_target('ready')
+    """
+    while True:
+        from pprint import pprint
+        pprint(commander.get_current_pose().pose)
+    """    
     s1 = rospy.Service('/franka_go', SetPositionCommand, move_service)
     s2 = rospy.Service('/franka_go_joint', SetJointPositionCommand, joint_move_service)
     s3 = rospy.Service('/franka_go_chess', SetChessGoal, chess_move_service)
@@ -295,6 +305,7 @@ if __name__ == '__main__':
                 sleep(0.1)
                 continue
             if go_to_side_vision_init:
+                rospy.logerr("Going to side vision init")
                 commander.set_joint_value_target(side_vision_joints)
                 plan1 = commander.plan()
                 commander.go(wait=True)
@@ -303,6 +314,8 @@ if __name__ == '__main__':
                 is_goal_reached = True
                 continue
             elif is_goal_trajectory:
+                rospy.logerr("Going to trajectory")
+                """
                 # first go to init position
                 rospy.logerr("going to hri init")
                 commander.set_joint_value_target(hri_init_joint)
@@ -317,10 +330,13 @@ if __name__ == '__main__':
                 commander.execute(traj, wait=True)
                 is_goal_reached = True
                 #trajectory_client.send_goal(goal_trajectory)
+                """
                 continue
             elif is_goal_jointwise:
+                rospy.logerr("Going to jointwise")
                 pass
             elif go_to_our_initial:
+                rospy.logerr("Going to our initial")
                 print("Going to our initial pose")
                 commander.set_joint_value_target(initial_joints)
                 plan1 = commander.plan()
@@ -331,6 +347,7 @@ if __name__ == '__main__':
 
                 continue
             elif is_goal_chess_place:
+                rospy.logerr("Going to chess place")
                 print("Going to chess place" + aim_place)
                 try:
                     goal_joints = chess_joints[aim_place]
@@ -357,6 +374,7 @@ if __name__ == '__main__':
                 is_goal_chess_place = False    
                 continue
             elif is_goal_relative:
+                rospy.logerr("Going to relative")
                 pose = commander.get_current_pose()
                 pose.pose.position.x += goal_x
                 pose.pose.position.y += goal_y
@@ -366,10 +384,16 @@ if __name__ == '__main__':
                 pose.pose.orientation.z += goal_q_z
                 pose.pose.orientation.w += goal_q_w
             else:
+                rospy.logerr("Going to absolute")
                 pose = commander.get_current_pose()
                 pose.pose.position.x = goal_x
                 pose.pose.position.y = goal_y
                 pose.pose.position.z = goal_z
+                pose.pose.orientation.x = goal_q_x
+                pose.pose.orientation.y = goal_q_y
+                pose.pose.orientation.z = goal_q_z
+                pose.pose.orientation.w = goal_q_w
+
 
 
             
@@ -377,9 +401,6 @@ if __name__ == '__main__':
             path, fraction = commander.compute_cartesian_path(waypoints=[pose.pose], eef_step=0.01, jump_threshold=0.0)
             
             path = commander.retime_trajectory(commander.get_current_state(), path, 0.1)
-            from pprint import pprint
-            pprint(vars(path))
-            rospy.logerr(vars(path))
             commander.execute(path, wait=True)
 
             rospy.loginfo("Moving to goal: %f, %f, %f", pose.pose.position.x, pose.pose.position.y, pose.pose.position.z)
