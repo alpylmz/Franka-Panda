@@ -8,6 +8,7 @@ float32 q_w
 bool is_relative
 bool go_to_init
 bool go_to_side_vision_init
+bool change_orientation_for_picking
 ---
 bool success
 string error
