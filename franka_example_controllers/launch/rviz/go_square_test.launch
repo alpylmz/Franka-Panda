@@ -1,0 +1,18 @@
+<?xml version="1.0" ?>
+<launch>
+
+
+<include file="$(find franka_example_controllers)/launch/move_to_start.launch">
+    <arg name="robot_ip" value="10.0.0.2" />
+</include>
+
+<node name="hri" pkg="franka_example_controllers" type="hri_component.py" output="screen" launch-prefix="gnome-terminal -x"> 
+</node>
+
+<node name="vision" pkg="chessmate" type= "vision_bridge.py" output="screen" launch-prefix="gnome-terminal -x python"> 
+</node>
+
+<node name="chesmate" pkg="chessmate" type= "pick_and_place_test" output="screen" launch-prefix="gnome-terminal -x"> 
+</node>
+
+</launch>
