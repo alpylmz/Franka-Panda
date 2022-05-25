@@ -1,6 +1,10 @@
+#! /usr/bin/env python
+
 import rospy
 import json
-
+import pathlib
+import os,sys
+import rospkg
 from control_msgs.msg import FollowJointTrajectoryAction, FollowJointTrajectoryGoal
 from trajectory_msgs.msg import JointTrajectoryPoint
 from std_msgs.msg import Float64MultiArray
@@ -56,17 +60,24 @@ def load_traj_from_json(file_name):
     return goal
 
 def main():
+    rospack = rospkg.RosPack()
+    print(rospack.get_path('franka_example_controllers') + "/scripts")
+    base_path = rospack.get_path('franka_example_controllers') + "/scripts/"
+    
+
+    print("HRI component")
+    
     rospy.init_node("trajectory_controll")
 
     s = rospy.Service('hri_traj', HRI, handle_hri_service)
 
-    global breath_trajectory
     global happy_trajectory
     global sad_trajectory
+    global breath_trajectory
 
-    breath_trajectory = load_traj_from_json("trajectories/breath_trajectory.json")
-    happy_trajectory = load_traj_from_json("trajectories/happy_trajectory.json")
-    sad_trajectory  = load_traj_from_json("trajectories/sad_trajectory.json")
+    breath_trajectory = load_traj_from_json(base_path + "standup.json")
+    happy_trajectory = load_traj_from_json(base_path + "trajectories/happy_trajectory.json")
+    sad_trajectory  = load_traj_from_json(base_path + "trajectories/sad_trajectory.json")
 
     rospy.spin()
 

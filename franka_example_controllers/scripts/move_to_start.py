@@ -26,6 +26,7 @@ from control_msgs.msg import FollowJointTrajectoryGoal, FollowJointTrajectoryAct
 from trajectory_msgs.msg import JointTrajectory
 from moveit_msgs.msg import JointConstraint
 from moveit_msgs.msg import Constraints
+import rospkg
 
 #from quaternion import Quaternion
 
@@ -68,7 +69,9 @@ goal_trajectory = None
 
 aim_place = None # will be string, as "a1", "d8"
 chess_joints = None
-with open("/home/alp/franka/src/Franka-Panda/franka_example_controllers/scripts/joint_positions.json", "r") as f:
+rospack = rospkg.RosPack()
+base_path = rospack.get_path('franka_example_controllers') + "/scripts/"
+with open(base_path+"joint_positions.json", "r") as f:
     chess_joints = json.load(f)
 
 
@@ -343,7 +346,7 @@ if __name__ == '__main__':
     #initial_joints = [0.8807196933525263, -0.8014431536310861, -0.42209067821502666, -2.1911595741634415, -0.33243660358600874, 1.4980820045918766, 1.323550466756026]
     #initial_joints = [0.1525394261890009, -0.08124570311546929, -0.07294265516092496, -1.5018837461405505, 0.006697758157634073, 1.4245549732844034, 0.878600022062846]
     #initial_joints = [0.15322086521630415, -0.11260720413400414, -0.07933782860502608, -1.1466092779796002, 0.016516494863563113, 1.0695718866963613, 0.8452164789947625]
-    initial_joints = [0.10207539587055209, -0.04598948213477314, -0.12240125663970645, -1.1621701308133325, 0.023521805551568544, 1.085416266818104, 0.7836754332222327]
+    initial_joints = [0.12478861932528393, 0.3198797040345995, -0.06263847231943805, -0.6177042243029253, 0.02260051092836592, 0.9272444691658019, 0.8368753729915035]
 
 
     #[-0.3426358018005103, -0.7527097266085973, 0.3211428673806972, -2.1997036707603113, 0.22632897217768974, 1.5394524623788894, 0.7070815159243338]
