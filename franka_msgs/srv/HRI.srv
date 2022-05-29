@@ -1,4 +1,3 @@
-bool breathing
-float32 game_status
+string move
 ---
 bool success

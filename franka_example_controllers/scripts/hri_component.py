@@ -14,9 +14,19 @@ from controller_manager_msgs.srv import LoadController
 import rospkg
 
 
+aggresive_trajectory = FollowJointTrajectoryGoal()
 breath_trajectory = FollowJointTrajectoryGoal()
-happy_trajectory = FollowJointTrajectoryGoal()
-sad_trajectory = FollowJointTrajectoryGoal()
+hesitation_trajectory = FollowJointTrajectoryGoal()
+lose_trajectory = FollowJointTrajectoryGoal()
+mock_trajectory = FollowJointTrajectoryGoal()
+nod_trajectory = FollowJointTrajectoryGoal()
+positive_trajectory = FollowJointTrajectoryGoal()
+salut_trajectory = FollowJointTrajectoryGoal()
+think_trajectory = FollowJointTrajectoryGoal()
+up_trajectory = FollowJointTrajectoryGoal()
+win_trajectory = FollowJointTrajectoryGoal()
+
+
 
 init_joints = [0.10167984932684593, -1.18724311909567, -0.09535411201373874, -2.180816145388399, -0.025952730392610403, 1.4625436514020722, 0.7860640899928077]
 
@@ -58,28 +68,67 @@ def handle_hri_service(req):
 
     client = connect_service("effort_joint_trajectory_controller/follow_joint_trajectory")
 
-    game_state = req.game_status
-    breath = req.breathing
+    move = req.move
     
     goal = breath_trajectory
     goal.trajectory.header.stamp = rospy.Time.now()# + rospy.Duration(1)
-
-    if(breath):
+    print(move)
+    if move == "breath":
         goal = breath_trajectory
         goal.trajectory.header.stamp = rospy.Time.now()# + rospy.Duration(1)
         resp = HRIResponse()
-        resp.success = True       
-    else:
-        if game_state < 0.5:
-            goal = sad_trajectory
-            goal.trajectory.header.stamp = rospy.Time.now()# + rospy.Duration(1)
-            resp = HRIResponse()
-            resp.success = True        
-        else:
-            goal = happy_trajectory
-            goal.trajectory.header.stamp = rospy.Time.now()# + rospy.Duration(1)
-            resp = HRIResponse()
-            resp.success = True
+        resp.success = True 
+    elif move == "win":
+        goal = win_trajectory
+        goal.trajectory.header.stamp = rospy.Time.now()# + rospy.Duration(1)
+        resp = HRIResponse()
+        resp.success = True
+    elif move == "lose":
+        goal = lose_trajectory
+        goal.trajectory.header.stamp = rospy.Time.now()# + rospy.Duration(1)
+        resp = HRIResponse()
+        resp.success = True      
+    elif move == "nod":
+        goal = nod_trajectory
+        goal.trajectory.header.stamp = rospy.Time.now()# + rospy.Duration(1)
+        resp = HRIResponse()
+        resp.success = True 
+    elif move == "salut":
+        goal = salut_trajectory
+        goal.trajectory.header.stamp = rospy.Time.now()# + rospy.Duration(1)
+        resp = HRIResponse()
+        resp.success = True 
+    elif move == "aggresive":
+        goal = aggresive_trajectory
+        goal.trajectory.header.stamp = rospy.Time.now()# + rospy.Duration(1)
+        resp = HRIResponse()
+        resp.success = True 
+    elif move == "hesitation":
+        goal = hesitation_trajectory
+        goal.trajectory.header.stamp = rospy.Time.now()# + rospy.Duration(1)
+        resp = HRIResponse()
+        resp.success = True
+    elif move == "think":
+        goal = think_trajectory
+        goal.trajectory.header.stamp = rospy.Time.now()# + rospy.Duration(1)
+        resp = HRIResponse()
+        resp.success = True      
+    elif move == "mock":
+        goal = mock_trajectory
+        goal.trajectory.header.stamp = rospy.Time.now()# + rospy.Duration(1)
+        resp = HRIResponse()
+        resp.success = True 
+    elif move == "up":
+        goal = up_trajectory
+        goal.trajectory.header.stamp = rospy.Time.now()# + rospy.Duration(1)
+        resp = HRIResponse()
+        resp.success = True 
+    elif move == "positive":
+        goal = positive_trajectory
+        goal.trajectory.header.stamp = rospy.Time.now()# + rospy.Duration(1)
+        resp = HRIResponse()
+        resp.success = True 
+    
 
     client.send_goal(goal)
     result = client.wait_for_result(rospy.Duration(100.0))
@@ -117,14 +166,34 @@ def main():
 
     s = rospy.Service('hri_traj', HRI, handle_hri_service)
 
+    
+    global aggresive_trajectory
     global breath_trajectory
-    global happy_trajectory
-    global sad_trajectory
+    global hesitation_trajectory
+    global lose_trajectory
+    global mock_trajectory
+    global nod_trajectory
+    global positive_trajectory
+    global salut_trajectory
+    global think_trajectory
+    global up_trajectory
+    global win_trajectory
+    
     rospack = rospkg.RosPack()
     base_path = rospack.get_path('franka_example_controllers') + "/scripts/"
+    
+    aggresive_trajectory = load_traj_from_json(base_path + "json_files/aggresive.json")
     breath_trajectory = load_traj_from_json(base_path + "json_files/breath2.json")
-    happy_trajectory = load_traj_from_json(base_path + "json_files/positive.json")
-    sad_trajectory  = load_traj_from_json(base_path + "json_files/nod.json")
+    hesitation_trajectory = load_traj_from_json(base_path + "json_files/hesitation.json")
+    lose_trajectory = load_traj_from_json(base_path + "json_files/lose.json")
+    mock_trajectory = load_traj_from_json(base_path + "json_files/mock.json")
+    nod_trajectory = load_traj_from_json(base_path + "json_files/nod.json")
+    positive_trajectory = load_traj_from_json(base_path + "json_files/positive.json")
+    salut_trajectory = load_traj_from_json(base_path + "json_files/salut.json")
+    think_trajectory = load_traj_from_json(base_path + "json_files/think.json")
+    up_trajectory = load_traj_from_json(base_path + "json_files/up.json")
+    win_trajectory = load_traj_from_json(base_path + "json_files/win.json")
+
 
     rospy.spin()
 
