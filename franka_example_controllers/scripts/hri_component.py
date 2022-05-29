@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import rospy
 import json
 import actionlib
@@ -9,6 +11,7 @@ from std_msgs.msg import Float64MultiArray
 from franka_msgs.srv import HRI, HRIResponse, HRIRequest
 from controller_manager_msgs.srv import SwitchController
 from controller_manager_msgs.srv import LoadController
+import rospkg
 
 
 breath_trajectory = FollowJointTrajectoryGoal()
@@ -65,20 +68,17 @@ def handle_hri_service(req):
         goal = breath_trajectory
         goal.trajectory.header.stamp = rospy.Time.now()# + rospy.Duration(1)
         resp = HRIResponse()
-        resp.trajGoal = goal
         resp.success = True       
     else:
         if game_state < 0.5:
             goal = sad_trajectory
             goal.trajectory.header.stamp = rospy.Time.now()# + rospy.Duration(1)
             resp = HRIResponse()
-            resp.trajGoal = goal
             resp.success = True        
         else:
             goal = happy_trajectory
             goal.trajectory.header.stamp = rospy.Time.now()# + rospy.Duration(1)
             resp = HRIResponse()
-            resp.trajGoal = goal
             resp.success = True
 
     client.send_goal(goal)
@@ -94,7 +94,7 @@ def handle_hri_service(req):
     except rospy.ServiceException as e:
         print("SHUT DOWN THE SYSTEMS IMMIDIEATLY Service call failed: %s"%e)
     
-    return
+    return resp
     ## how to decide which traj to send?=?=?=?=?
     
 
@@ -120,10 +120,11 @@ def main():
     global breath_trajectory
     global happy_trajectory
     global sad_trajectory
-
-    breath_trajectory = load_traj_from_json("json_files/breath2.json")
-    happy_trajectory = load_traj_from_json("json_files/positive.json")
-    sad_trajectory  = load_traj_from_json("json_files/nod.json")
+    rospack = rospkg.RosPack()
+    base_path = rospack.get_path('franka_example_controllers') + "/scripts/"
+    breath_trajectory = load_traj_from_json(base_path + "json_files/breath2.json")
+    happy_trajectory = load_traj_from_json(base_path + "json_files/positive.json")
+    sad_trajectory  = load_traj_from_json(base_path + "json_files/nod.json")
 
     rospy.spin()
 

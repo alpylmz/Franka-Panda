@@ -2,4 +2,3 @@ bool breathing
 float32 game_status
 ---
 bool success
-control_msgs/FollowJointTrajectoryGoal trajGoal
