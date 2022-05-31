@@ -33,7 +33,10 @@ init_joints = [0.10167984932684593, -1.18724311909567, -0.09535411201373874, -2.
 def connect_service(name):
     client = actionlib.SimpleActionClient(name,
                                             FollowJointTrajectoryAction)
-    print(client.wait_for_server(timeout=rospy.Duration(1.0)))
+    
+    #client = actionlib.ActionClient(name, FollowJointTrajectoryAction)
+    
+    print(client.wait_for_server(timeout=rospy.Duration(2.0)))
     print("Connected to trajectory manager")
     return client
 
@@ -41,6 +44,12 @@ commander = MoveGroupCommander('panda_arm')
 
 def handle_hri_service(req):
 
+
+    move = req.move
+
+    print(move)
+
+    
     commander.set_joint_value_target(init_joints)
     plan1 = commander.plan()
     commander.go(wait=True)
@@ -68,71 +77,90 @@ def handle_hri_service(req):
 
     client = connect_service("effort_joint_trajectory_controller/follow_joint_trajectory")
 
-    move = req.move
     
     goal = breath_trajectory
-    goal.trajectory.header.stamp = rospy.Time.now()# + rospy.Duration(1)
-    print(move)
+    goal.trajectory.header.stamp = rospy.Time.now() #+ rospy.Duration(1)
+    
     if move == "breath":
         goal = breath_trajectory
-        goal.trajectory.header.stamp = rospy.Time.now()# + rospy.Duration(1)
+        goal.trajectory.header.stamp = rospy.Time.now() #+ rospy.Duration(1)
         resp = HRIResponse()
         resp.success = True 
     elif move == "win":
         goal = win_trajectory
-        goal.trajectory.header.stamp = rospy.Time.now()# + rospy.Duration(1)
+        goal.trajectory.header.stamp = rospy.Time.now() #+ rospy.Duration(1)
         resp = HRIResponse()
         resp.success = True
     elif move == "lose":
         goal = lose_trajectory
-        goal.trajectory.header.stamp = rospy.Time.now()# + rospy.Duration(1)
+        goal.trajectory.header.stamp = rospy.Time.now() #+ rospy.Duration(1)
         resp = HRIResponse()
         resp.success = True      
     elif move == "nod":
         goal = nod_trajectory
-        goal.trajectory.header.stamp = rospy.Time.now()# + rospy.Duration(1)
+        goal.trajectory.header.stamp = rospy.Time.now() #+ rospy.Duration(1)
         resp = HRIResponse()
         resp.success = True 
     elif move == "salut":
         goal = salut_trajectory
-        goal.trajectory.header.stamp = rospy.Time.now()# + rospy.Duration(1)
+        goal.trajectory.header.stamp = rospy.Time.now() #+ rospy.Duration(1)
         resp = HRIResponse()
         resp.success = True 
     elif move == "aggresive":
         goal = aggresive_trajectory
-        goal.trajectory.header.stamp = rospy.Time.now()# + rospy.Duration(1)
+        goal.trajectory.header.stamp = rospy.Time.now() #+ rospy.Duration(1)
         resp = HRIResponse()
         resp.success = True 
     elif move == "hesitation":
         goal = hesitation_trajectory
-        goal.trajectory.header.stamp = rospy.Time.now()# + rospy.Duration(1)
+        goal.trajectory.header.stamp = rospy.Time.now() #+ rospy.Duration(1)
         resp = HRIResponse()
         resp.success = True
     elif move == "think":
         goal = think_trajectory
-        goal.trajectory.header.stamp = rospy.Time.now()# + rospy.Duration(1)
+        goal.trajectory.header.stamp = rospy.Time.now() #+ rospy.Duration(1)
         resp = HRIResponse()
         resp.success = True      
     elif move == "mock":
         goal = mock_trajectory
-        goal.trajectory.header.stamp = rospy.Time.now()# + rospy.Duration(1)
+        goal.trajectory.header.stamp = rospy.Time.now() #+ rospy.Duration(1)
         resp = HRIResponse()
         resp.success = True 
     elif move == "up":
         goal = up_trajectory
-        goal.trajectory.header.stamp = rospy.Time.now()# + rospy.Duration(1)
+        goal.trajectory.header.stamp = rospy.Time.now() #+ rospy.Duration(1)
         resp = HRIResponse()
         resp.success = True 
     elif move == "positive":
         goal = positive_trajectory
-        goal.trajectory.header.stamp = rospy.Time.now()# + rospy.Duration(1)
+        goal.trajectory.header.stamp = rospy.Time.now() #+ rospy.Duration(1)
         resp = HRIResponse()
         resp.success = True 
     
+    #client.cancel_all_goals()
+    #client.stop_tracking_goal()
+    #client.send_goal_and_wait(goal)
+    #print(client.feedback_cb)
+    print(goal.trajectory.header.stamp)
+    client.send_goal_and_wait(goal)
+    #client.
+    #result = client.wait_for_result(rospy.Duration(30.0))
+    print("------")
+    #print(client.get_state())
+    #client.cancel_goal()
+    #client.cancel_all_goals()
+    #print(result)
+    stat = client.get_state()
+    client.stop_tracking_goal()
 
-    client.send_goal(goal)
-    result = client.wait_for_result(rospy.Duration(100.0))
-    print(result)
+    print(stat)
+
+    while stat == 2:
+        print("state is twoo")
+        print(stat)
+        goal.trajectory.header.stamp = rospy.Time.now() #+ rospy.Duration(1)
+        client.send_goal_and_wait(goal)
+        stat = client.get_state()
 
     rospy.wait_for_service('controller_manager/switch_controller')
 
@@ -142,7 +170,7 @@ def handle_hri_service(req):
         print(resp1)
     except rospy.ServiceException as e:
         print("SHUT DOWN THE SYSTEMS IMMIDIEATLY Service call failed: %s"%e)
-    
+    print("FINISHEDDDDD")
     return resp
     ## how to decide which traj to send?=?=?=?=?
     
