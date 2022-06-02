@@ -142,9 +142,9 @@ def handle_hri_service(req):
     #client.send_goal_and_wait(goal)
     #print(client.feedback_cb)
     print(goal.trajectory.header.stamp)
-    client.send_goal_and_wait(goal)
+    client.send_goal(goal)
     #client.
-    #result = client.wait_for_result(rospy.Duration(30.0))
+    result = client.wait_for_result(rospy.Duration(30.0))
     print("------")
     #print(client.get_state())
     #client.cancel_goal()
@@ -159,7 +159,8 @@ def handle_hri_service(req):
         print("state is twoo")
         print(stat)
         goal.trajectory.header.stamp = rospy.Time.now() #+ rospy.Duration(1)
-        client.send_goal_and_wait(goal)
+        client.send_goal(goal)
+        result = client.wait_for_result(rospy.Duration(30.0))
         stat = client.get_state()
 
     rospy.wait_for_service('controller_manager/switch_controller')
