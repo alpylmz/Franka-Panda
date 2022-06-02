@@ -167,7 +167,7 @@ def handle_hri_service(req):
 
     try:
         switch = rospy.ServiceProxy('controller_manager/switch_controller', SwitchController)
-        resp1 = switch(['position_joint_trajectory_controller'], ['effort_joint_trajectory_controller'], 2, True, 1)
+        resp1 = switch(['position_joint_trajectory_controller'], ['effort_joint_trajectory_controller'], 2, True, 0)
         print(resp1)
     except rospy.ServiceException as e:
         print("SHUT DOWN THE SYSTEMS IMMIDIEATLY Service call failed: %s"%e)
