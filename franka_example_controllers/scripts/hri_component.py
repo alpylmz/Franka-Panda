@@ -49,10 +49,10 @@ def handle_hri_service(req):
 
     print(move)
 
-    
-    commander.set_joint_value_target(init_joints)
-    plan1 = commander.plan()
-    commander.go(wait=True)
+    if move != "breath":
+        commander.set_joint_value_target(init_joints)
+        plan1 = commander.plan()
+        commander.go(wait=True)
 
     rospy.wait_for_service('controller_manager/load_controller')
 
@@ -144,7 +144,7 @@ def handle_hri_service(req):
     print(goal.trajectory.header.stamp)
     client.send_goal(goal)
     #client.
-    result = client.wait_for_result(rospy.Duration(30.0))
+    result = client.wait_for_result(rospy.Duration(20.0))
     print("------")
     #print(client.get_state())
     #client.cancel_goal()
@@ -184,6 +184,7 @@ def load_traj_from_json(file_name):
     for z in range(count):
         goal.trajectory.points.append(JointTrajectoryPoint())
         goal.trajectory.points[z].positions = f["points"][z]
+        goal.trajectory.points[z].velocities = [0.0, 0.05, 0.0, 0.0, 0.0, 0.0, 0.0]
         goal.trajectory.points[z].time_from_start = rospy.Duration(f["times_from_start"][z])
     
     goal.trajectory.header.stamp = rospy.Time.now() + rospy.Duration(1)
@@ -212,7 +213,7 @@ def main():
     base_path = rospack.get_path('franka_example_controllers') + "/scripts/"
     
     aggresive_trajectory = load_traj_from_json(base_path + "json_files/aggresive.json")
-    breath_trajectory = load_traj_from_json(base_path + "json_files/breath2.json")
+    breath_trajectory = load_traj_from_json(base_path + "json_files/breath_look.json")
     hesitation_trajectory = load_traj_from_json(base_path + "json_files/hesitation.json")
     lose_trajectory = load_traj_from_json(base_path + "json_files/lose.json")
     mock_trajectory = load_traj_from_json(base_path + "json_files/mock.json")

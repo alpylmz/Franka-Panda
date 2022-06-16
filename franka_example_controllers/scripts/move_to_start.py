@@ -47,6 +47,7 @@ goal_q_x = 0.0
 goal_q_y = 0.0
 goal_q_z = 0.0
 goal_q_w = 0.0
+goals = []
 is_there_a_goal = False
 is_goal_relative = False
 go_to_our_initial = False
@@ -73,6 +74,8 @@ rospack = rospkg.RosPack()
 base_path = rospack.get_path('franka_example_controllers') + "/scripts/"
 with open(base_path+"joint_positions.json", "r") as f:
     chess_joints = json.load(f)
+
+PLAN_SCALER = 0.45
 
 
 
@@ -176,7 +179,7 @@ def joint_move_service(req):
     return True, ""
 
 def move_service(req):
-    global goal_x, goal_y, goal_z, is_there_a_goal, is_goal_relative, goal_q_x, goal_q_y, goal_q_z, goal_q_w, go_to_our_initial, is_goal_jointwise, is_goal_chess_place, is_goal_reached, is_goal_trajectory, go_to_side_vision_init, change_orientation_for_picking
+    global goal_x, goal_y, goal_z, is_there_a_goal, is_goal_relative, goal_q_x, goal_q_y, goal_q_z, goal_q_w, go_to_our_initial, is_goal_jointwise, is_goal_chess_place, is_goal_reached, is_goal_trajectory, go_to_side_vision_init, change_orientation_for_picking, goals
     goal_x = req.x
     goal_y = req.y
     goal_z = req.z
@@ -196,21 +199,37 @@ def move_service(req):
     go_to_our_initial = req.go_to_init
     go_to_side_vision_init = req.go_to_side_vision_init
     change_orientation_for_picking = req.change_orientation_for_picking
+    
     is_goal_jointwise = False
     is_goal_chess_place = False
     is_goal_trajectory = False
+    
+    # if we are executing now, and we do not have other goals
+    if (req.execute_now and len(goals) == 0) or change_orientation_for_picking:
+        is_there_a_goal = True
 
-    is_there_a_goal = True
+        # wait!
+        is_goal_reached = False
+        # I know this is terrible, will decide and complete action client asap
+        # I am just not sure if action client is really a good idea
+        while not is_goal_reached:
+            print("waiting for the movement!")
+            sleep(0.5)
+        return True, ""
+    
+    rospy.logerr("added one goal!")
+    goals.append([goal_x, goal_y, goal_z, goal_q_x, goal_q_y, goal_q_z, goal_q_w])
+    if req.execute_now:
+        is_there_a_goal = True
+        is_goal_reached = False
+        while not is_goal_reached:
+            print("waiting for the movement!")
+            sleep(0.5)
 
-    # wait!
-    is_goal_reached = False
-    # I know this is terrible, will decide and complete action client asap
-    # I am just not sure if action client is really a good idea
-    while not is_goal_reached:
-        print("waiting for the movement!")
-        sleep(0.5)
-
+    else:
+        is_there_a_goal = False
     return True, ""
+
 
 def trajectory_service(req):
     global goal_x, goal_y, goal_z, is_there_a_goal, is_goal_relative, goal_q_x, goal_q_y, goal_q_z, goal_q_w, go_to_our_initial, is_goal_jointwise, is_goal_chess_place, is_goal_reached, is_goal_trajectory, goal_trajectory
@@ -339,6 +358,7 @@ if __name__ == '__main__':
     our_initial_pose.pose.orientation.z = -0.029732857849977316
     our_initial_pose.pose.orientation.w = 0.013416713696730436
 
+
     #commander.set_pose_target(our_initial_pose)
     #plan1 = commander.plan()
 
@@ -365,6 +385,7 @@ if __name__ == '__main__':
     while True:
         try:
             pose = None
+            waypoints = []
             if not is_there_a_goal:
                 sleep(0.1)
                 continue
@@ -372,18 +393,34 @@ if __name__ == '__main__':
                 rospy.logerr("Going to side vision init")
                 commander.set_joint_value_target(joint_taken_by_hand)
                 plan1 = commander.plan()
-                commander.go(wait=True)
+                path2 = commander.retime_trajectory(commander.get_current_state(), plan1[1], PLAN_SCALER)
+                commander.execute(path2, wait=True)
                 rospy.logerr("PLAN IS EXECUTED!!!!!!")
                 go_to_side_vision_init = False
                 change_orientation_for_picking = False
-                is_there_a_goal = True
-                is_goal_reached = False
+                is_there_a_goal = False # be careful
+                is_goal_reached = True
                 continue
+            elif len(goals) != 0:
+                pose = commander.get_current_pose() # actually we do not need this, but it solves a bug in the last lines of the loop
+                waypoints.append(commander.get_current_pose().pose)
+                rospy.loginfo("got the first append!")
+                for waypoint in goals:
+                    curr_pose = commander.get_current_pose().pose
+                    curr_pose.position.x = waypoint[0]
+                    curr_pose.position.y = waypoint[1]
+                    curr_pose.position.z = waypoint[2]
+                    rospy.loginfo("got another append!")
+                    
+                    waypoints.append(curr_pose)
+                goals = []
             elif go_to_side_vision_init:
                 rospy.logerr("Going to side vision init")
                 commander.set_joint_value_target(side_vision_joints)
                 plan1 = commander.plan()
-                commander.go(wait=True)
+                path2 = commander.retime_trajectory(commander.get_current_state(), plan1[1], PLAN_SCALER)
+                commander.execute(path2, wait=True)
+                #commander.go(wait=True)
                 go_to_side_vision_init = False
                 is_there_a_goal = False
                 is_goal_reached = True
@@ -415,7 +452,8 @@ if __name__ == '__main__':
                 print("Going to our initial pose")
                 commander.set_joint_value_target(initial_joints)
                 plan1 = commander.plan()
-                commander.go(wait=True)
+                path2 = commander.retime_trajectory(commander.get_current_state(), plan1[1], PLAN_SCALER)
+                commander.execute(path2, wait=True)
                 go_to_our_initial = False
                 is_there_a_goal = False
                 is_goal_reached = True
@@ -467,160 +505,28 @@ if __name__ == '__main__':
                 pose.pose.position.y = goal_y
                 pose.pose.position.z = goal_z
 
+            if len(waypoints) != 0:
+                rospy.loginfo("sending the waypoints!")
+                path, fraction = commander.compute_cartesian_path(waypoints=waypoints, eef_step = 0.01, jump_threshold = 0.0)
+                #path = commander.retime_trajectory(commander.get_current_state(), path, 1.0)
+            else:  
+                rospy.loginfo("sending the single waypoint!")
+                #path, fraction = commander.compute_cartesian_path(waypoints=[pose.pose], eef_step=0.01, jump_threshold=0.0)
+                path, fraction = commander.compute_cartesian_path(waypoints=[commander.get_current_pose().pose, pose.pose], eef_step=0.001, jump_threshold=0.0)
+                #path, fraction = commander.compute_cartesian_path(waypoints=[pose.pose], eef_step=0.01, jump_threshold=0.0)
             
-            #commander.set_num_planning_attempts(5)
-            #commander.set_planning_time(10)
-
-            bound = 0.2
-
-            curr_joints = commander.get_current_joint_values()
-
-            jointConstraint_link1 = JointConstraint()
-            jointConstraint_link1.joint_name = "panda_joint1"
-            jointConstraint_link1.position = curr_joints[0]
-            jointConstraint_link1.tolerance_above = bound
-            jointConstraint_link1.tolerance_below = bound
-            jointConstraint_link1.weight = 1.0
-
-            jointConstraint_link2 = JointConstraint()
-            jointConstraint_link2.joint_name = "panda_joint2"
-            jointConstraint_link2.position = curr_joints[1]
-            jointConstraint_link2.tolerance_above = bound
-            jointConstraint_link2.tolerance_below = bound
-            jointConstraint_link2.weight = 1.0
-
-            jointConstraint_link3 = JointConstraint()
-            jointConstraint_link3.joint_name = "panda_joint3"
-            jointConstraint_link3.position = curr_joints[2]
-            jointConstraint_link3.tolerance_above = bound
-            jointConstraint_link3.tolerance_below = bound
-            jointConstraint_link3.weight = 1.0
-
-            jointConstraint_link4 = JointConstraint()
-            jointConstraint_link4.joint_name = "panda_joint4"
-            jointConstraint_link4.position = curr_joints[3]
-            jointConstraint_link4.tolerance_above = bound
-            jointConstraint_link4.tolerance_below = bound
-            jointConstraint_link4.weight = 1.0
-
-            jointConstraint_link5 = JointConstraint()
-            jointConstraint_link5.joint_name = "panda_joint5"
-            jointConstraint_link5.position = curr_joints[4]
-            jointConstraint_link5.tolerance_above = bound
-            jointConstraint_link5.tolerance_below = bound
-            jointConstraint_link5.weight = 1.0
-
-            constraints = Constraints()
-            constraints.joint_constraints = [jointConstraint_link1, jointConstraint_link2, jointConstraint_link3, jointConstraint_link4, jointConstraint_link5]
-            commander.set_path_constraints(constraints)
-
-            """
-            rospy.logerr("first change the orientation " + str(pose))
-            curr_pose = commander.get_current_pose()
-            curr_pose.pose.orientation.x = pose.pose.orientation.x
-            curr_pose.pose.orientation.y = pose.pose.orientation.y
-            curr_pose.pose.orientation.z = pose.pose.orientation.z
-            curr_pose.pose.orientation.w = pose.pose.orientation.w
-            #commander.set_orientation_target([pose.pose.orientation.x, pose.pose.orientation.y, pose.pose.orientation.z, pose.pose.orientation.w])
-            commander.set_rpy_target([pose.pose.orientation.x, pose.pose.orientation.y, pose.pose.orientation.z])
-            plan1 = commander.plan()
-            rospy.logerr("plan is " + str(plan1))
-            commander.go(wait=True)
-            rospy.logerr("orientation turn is done")
-            """
-            
-            """
-            # a new trajectory execution if orientation change is needed
-            if change_orientation_for_picking:
-                cartesian_poses = False
-                if cartesian_poses:
-                    pose1 = commander.get_current_pose()
-                    pose1.pose.position.x = 0.19539142069987844
-                    pose1.pose.position.y = 0.032936914228738325
-                    pose1.pose.position.z = 0.6607737371090258
-                    pose1.pose.orientation.x = -0.9151174542820978
-                    pose1.pose.orientation.y = 0.3666390724514755
-                    pose1.pose.orientation.z = -0.14648440132947507
-                    pose1.pose.orientation.w = 0.08171998279074418
-                    #pose1 = [pose1.pose.position.x, pose1.pose.position.y, pose1.pose.position.z, pose1.pose.orientation.x, pose1.pose.orientation.y, pose1.pose.orientation.z, pose1.pose.orientation.w]
-
-                    pose2 = commander.get_current_pose()
-                    pose2.pose.position.x = 0.2488452570021335
-                    pose2.pose.position.y = 0.03153220737061438
-                    pose2.pose.position.z = 0.637208593186331
-                    pose2.pose.orientation.x = -0.9221565634364416
-                    pose2.pose.orientation.y = 0.3753940224220725
-                    pose2.pose.orientation.z = -0.07703848385719647
-                    pose2.pose.orientation.w = 0.05264667554417027
-                    #pose2 = [pose2.pose.position.x, pose2.pose.position.y, pose2.pose.position.z, pose2.pose.orientation.x, pose2.pose.orientation.y, pose2.pose.orientation.z, pose2.pose.orientation.w]
-
-                    pose3 = commander.get_current_pose()
-                    pose3.pose.position.x = 0.336669021224307
-                    pose3.pose.position.y = 0.03530110281921283
-                    pose3.pose.position.z = 0.6003148768897769
-                    pose3.pose.orientation.x = -0.9237954028187488
-                    pose3.pose.orientation.y = 0.38091077977297527
-                    pose3.pose.orientation.z = -0.023952300585639404
-                    pose3.pose.orientation.w = 0.030582983509536376
-                    #pose3 = [pose3.pose.position.x, pose3.pose.position.y, pose3.pose.position.z, pose3.pose.orientation.x, pose3.pose.orientation.y, pose3.pose.orientation.z, pose3.pose.orientation.w]
-                    path = [pose1.pose, pose2.pose, pose3.pose]
-                    commander.set_pose_targets(path)
-                    rospy.logerr("planning for prepare path!")
-                    plan2 = commander.plan()
-                    rospy.logerr("plan is " + str(plan2))
-                    path, fraction = commander.compute_cartesian_path(waypoints=path, eef_step=0.001, jump_threshold=0.0)
-                    #path = commander.retime_trajectory(commander.get_current_state(), path, 0.1)
-                    
-                    commander.execute(path, wait=True)
-                    change_orientation_for_picking = False
-                else:
-                    print("cartesian path is not available")
-                    joint_pose1 = [0.06834718965035619, -1.169693701367748, 0.03881455022389742, -2.414482822358247, 0.047631221551103664, 1.5836862766896393, 0.8575337021531951]
-                    joint_pose2 = [0.13431660079057045, -1.1098838250833898, 0.0012568398725599367, -2.4019769038309264, 0.010686704005310715, 1.581068627066608, 0.9005460814530988]
-                    joint_pose3 = [0.20028601193078474, -1.0500739487990316, -0.036300870478777544, -2.3894709853036065, -0.026257813540482233, 1.5784509774435762, 0.9435584607530023]
-                    joint_pose4 = [0.26625542307099903, -0.9902640725146733, -0.07385858083011503, -2.376965066776286, -0.0632023310862752, 1.5758333278205447, 0.986570840052906]
-                    
-                    joint_taken_by_hand = [0.00616382540145848, -0.7852030825311441, 0.03525380717565255, -2.4319639494758376, 0.046750732623868516, 1.670268750106765, 0.847491638365995]
-                    commander.set_joint_value_target(joint_taken_by_hand)
-                    plan1 = commander.plan()
-                    commander.go(wait=True)
-                    
-                    commander.set_joint_value_target(joint_pose2)
-                    plan2 = commander.plan()
-                    commander.go(wait=True)
-                    commander.set_joint_value_target(joint_pose3)
-                    plan3 = commander.plan()
-                    commander.go(wait=True)
-                    commander.set_joint_value_target(joint_pose4)
-                    plan4 = commander.plan()
-                    commander.go(wait=True)
-                    
-            """
-
-            commander.clear_path_constraints()
-            
-            #commander.set_max_acceleration_scaling_factor(0.1)
-            #commander.set_max_velocity_scaling_factor(0.1)
-            #path, fraction = commander.compute_cartesian_path(waypoints=[pose.pose], eef_step=0.01, jump_threshold=0.0)
-            path, fraction = commander.compute_cartesian_path(waypoints=[commander.get_current_pose().pose, pose.pose], eef_step=0.001, jump_threshold=0.0)
-            #path, fraction = commander.compute_cartesian_path(waypoints=[pose.pose], eef_step=0.01, jump_threshold=0.0)
-            rospy.loginfo("the pose in the path is " + str(pose.pose))
-            rospy.loginfo("the path is " + str(path))
-            
-            path = commander.retime_trajectory(commander.get_current_state(), path, 0.1)
+            path = commander.retime_trajectory(commander.get_current_state(), path, 2.5)
+            rospy.loginfo("Moving to goal: %f, %f, %f", pose.pose.position.x, pose.pose.position.y, pose.pose.position.z)
             commander.execute(path, wait=True)
 
-            rospy.loginfo("Moving to goal: %f, %f, %f", pose.pose.position.x, pose.pose.position.y, pose.pose.position.z)
             #plan1 = commander.plan()
 
             #commander.go(wait=True)
             rospy.loginfo("Reached goal")
             is_there_a_goal = False
             is_goal_reached = True
-            print(commander.get_current_pose())
         except Exception as ex:
             rospy.logerr(ex)
             rospy.logerr("Failed to move to goal")
             is_there_a_goal = False
             is_goal_reached = True
-        

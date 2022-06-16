@@ -9,6 +9,7 @@ bool is_relative
 bool go_to_init
 bool go_to_side_vision_init
 bool change_orientation_for_picking
+bool execute_now
 ---
 bool success
 string error
